@@ -39,6 +39,44 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MenuFrame
 
+-- Создаем шторку (HeaderFrame) для основного меню
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Parent = MenuFrame
+HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+HeaderFrame.Position = UDim2.new(0, 0, 0, 0)
+HeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+HeaderFrame.BorderSizePixel = 0
+HeaderFrame.ZIndex = 3
+HeaderFrame.ClipsDescendants = true
+
+-- Скругленные углы для шторки
+local HeaderUICorner = Instance.new("UICorner")
+HeaderUICorner.CornerRadius = UDim.new(0, 8)
+HeaderUICorner.Parent = HeaderFrame
+
+-- Градиент для шторки
+local HeaderGradient = Instance.new("UIGradient")
+HeaderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 70, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 100, 100))
+})
+HeaderGradient.Rotation = 45
+HeaderGradient.Parent = HeaderFrame
+
+-- Текст в шторке
+local HeaderLabel = Instance.new("TextLabel")
+HeaderLabel.Parent = HeaderFrame
+HeaderLabel.Size = UDim2.new(0.5, -10, 1, 0)
+HeaderLabel.Position = UDim2.new(0, 10, 0, 0)
+HeaderLabel.BackgroundTransparency = 1
+HeaderLabel.Text = "Script v2 Roblox by @meda898"
+HeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+HeaderLabel.TextYAlignment = Enum.TextYAlignment.Center
+HeaderLabel.Font = Enum.Font.GothamBold
+HeaderLabel.TextSize = 14
+HeaderLabel.ZIndex = 3
+
 -- Текст для минимизированного содержимого
 local MinimizedContentLabel = Instance.new("TextLabel")
 MinimizedContentLabel.Parent = MenuFrame
@@ -65,7 +103,7 @@ ExpandButton.Active = true
 
 -- Кнопка "Закрыть"
 local CloseButton = Instance.new("TextButton")
-CloseButton.Parent = MenuFrame
+CloseButton.Parent = HeaderFrame
 CloseButton.Text = "X"
 CloseButton.Size = UDim2.new(0, 20, 0, 20)
 CloseButton.Position = UDim2.new(1, -25, 0, 5)
@@ -79,7 +117,7 @@ CloseButton.Active = true
 
 -- Кнопка "Свернуть"
 local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Parent = MenuFrame
+MinimizeButton.Parent = HeaderFrame
 MinimizeButton.Text = "_"
 MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
 MinimizeButton.Position = UDim2.new(1, -50, 0, 5)
@@ -94,7 +132,7 @@ MinimizeButton.Active = true
 -- Кнопка переключения темы
 local isDarkTheme = true
 local ThemeButton = Instance.new("TextButton")
-ThemeButton.Parent = MenuFrame
+ThemeButton.Parent = HeaderFrame
 ThemeButton.Size = UDim2.new(0, 20, 0, 20)
 ThemeButton.Position = UDim2.new(1, -75, 0, 5)
 ThemeButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
@@ -107,7 +145,7 @@ ThemeButton.Active = true
 
 -- Кнопка-шестерёнка для настроек меню
 local MenuSettingsButton = Instance.new("TextButton")
-MenuSettingsButton.Parent = MenuFrame
+MenuSettingsButton.Parent = HeaderFrame
 MenuSettingsButton.Size = UDim2.new(0, 20, 0, 20)
 MenuSettingsButton.Position = UDim2.new(1, -100, 0, 5)
 MenuSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
@@ -122,7 +160,7 @@ MenuSettingsButton.Active = true
 local ActivateButton = Instance.new("TextButton")
 ActivateButton.Parent = MenuFrame
 ActivateButton.Size = UDim2.new(0, 150, 0, 40)
-ActivateButton.Position = UDim2.new(0, 10, 0, 30)
+ActivateButton.Position = UDim2.new(0, 10, 0, 40)
 ActivateButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
 ActivateButton.Text = "Activate Fly"
 ActivateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -135,7 +173,7 @@ ActivateButton.AutoButtonColor = false
 local WallHackButton = Instance.new("TextButton")
 WallHackButton.Parent = MenuFrame
 WallHackButton.Size = UDim2.new(0, 150, 0, 40)
-WallHackButton.Position = UDim2.new(0, 185, 0, 30)
+WallHackButton.Position = UDim2.new(0, 185, 0, 40)
 WallHackButton.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
 WallHackButton.Text = "Toggle WallHack"
 WallHackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -148,7 +186,7 @@ WallHackButton.AutoButtonColor = false
 local SpeedHackButton = Instance.new("TextButton")
 SpeedHackButton.Parent = MenuFrame
 SpeedHackButton.Size = UDim2.new(0, 150, 0, 40)
-SpeedHackButton.Position = UDim2.new(0, 10, 0, 80)
+SpeedHackButton.Position = UDim2.new(0, 10, 0, 90)
 SpeedHackButton.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
 SpeedHackButton.Text = "Toggle SpeedHack"
 SpeedHackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -161,7 +199,7 @@ SpeedHackButton.AutoButtonColor = false
 local SpeedSettingsButton = Instance.new("TextButton")
 SpeedSettingsButton.Parent = MenuFrame
 SpeedSettingsButton.Size = UDim2.new(0, 20, 0, 20)
-SpeedSettingsButton.Position = UDim2.new(0, 160, 0, 85)
+SpeedSettingsButton.Position = UDim2.new(0, 160, 0, 95)
 SpeedSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
 SpeedSettingsButton.Text = "⚙"
 SpeedSettingsButton.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -173,7 +211,7 @@ SpeedSettingsButton.ZIndex = 2
 local NoclipButton = Instance.new("TextButton")
 NoclipButton.Parent = MenuFrame
 NoclipButton.Size = UDim2.new(0, 150, 0, 40)
-NoclipButton.Position = UDim2.new(0, 185, 0, 80)
+NoclipButton.Position = UDim2.new(0, 185, 0, 90)
 NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
 NoclipButton.Text = "Toggle Noclip"
 NoclipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -187,7 +225,7 @@ print("NoclipButton создан")
 local TeleportButton = Instance.new("TextButton")
 TeleportButton.Parent = MenuFrame
 TeleportButton.Size = UDim2.new(0, 150, 0, 40)
-TeleportButton.Position = UDim2.new(0, 185, 0, 130)
+TeleportButton.Position = UDim2.new(0, 185, 0, 140)
 TeleportButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
 TeleportButton.Text = "Teleport to Player"
 TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -200,7 +238,7 @@ TeleportButton.AutoButtonColor = false
 local InfiniteJumpButton = Instance.new("TextButton")
 InfiniteJumpButton.Parent = MenuFrame
 InfiniteJumpButton.Size = UDim2.new(0, 150, 0, 40)
-InfiniteJumpButton.Position = UDim2.new(0, 10, 0, 130)
+InfiniteJumpButton.Position = UDim2.new(0, 10, 0, 140)
 InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
 InfiniteJumpButton.Text = "Toggle Infinite Jump"
 InfiniteJumpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -379,9 +417,47 @@ local MenuSettingsUICorner = Instance.new("UICorner")
 MenuSettingsUICorner.CornerRadius = UDim.new(0, 10)
 MenuSettingsUICorner.Parent = MenuSettingsPanel
 
--- Кнопка "Назад" для MenuSettingsPanel
+-- Создаем шторку (MenuSettingsHeaderFrame) для MenuSettingsPanel
+local MenuSettingsHeaderFrame = Instance.new("Frame")
+MenuSettingsHeaderFrame.Parent = MenuSettingsPanel
+MenuSettingsHeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+MenuSettingsHeaderFrame.Position = UDim2.new(0, 0, 0, 0)
+MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+MenuSettingsHeaderFrame.BorderSizePixel = 0
+MenuSettingsHeaderFrame.ZIndex = 5
+MenuSettingsHeaderFrame.ClipsDescendants = true
+
+-- Скругленные углы для шторки
+local MenuSettingsHeaderUICorner = Instance.new("UICorner")
+MenuSettingsHeaderUICorner.CornerRadius = UDim.new(0, 8)
+MenuSettingsHeaderUICorner.Parent = MenuSettingsHeaderFrame
+
+-- Градиент для шторки
+local MenuSettingsHeaderGradient = Instance.new("UIGradient")
+MenuSettingsHeaderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 70, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 100, 100))
+})
+MenuSettingsHeaderGradient.Rotation = 45
+MenuSettingsHeaderGradient.Parent = MenuSettingsHeaderFrame
+
+-- Текст в шторке
+local MenuSettingsHeaderLabel = Instance.new("TextLabel")
+MenuSettingsHeaderLabel.Parent = MenuSettingsHeaderFrame
+MenuSettingsHeaderLabel.Size = UDim2.new(0.5, -10, 1, 0)
+MenuSettingsHeaderLabel.Position = UDim2.new(0, 10, 0, 0)
+MenuSettingsHeaderLabel.BackgroundTransparency = 1
+MenuSettingsHeaderLabel.Text = "Menu Settings"
+MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+MenuSettingsHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+MenuSettingsHeaderLabel.TextYAlignment = Enum.TextYAlignment.Center
+MenuSettingsHeaderLabel.Font = Enum.Font.GothamBold
+MenuSettingsHeaderLabel.TextSize = 14
+MenuSettingsHeaderLabel.ZIndex = 5
+
+-- Кнопка "Назад" для MenuSettingsPanel (перемещена внутрь шторки)
 local MenuSettingsCloseButton = Instance.new("TextButton")
-MenuSettingsCloseButton.Parent = MenuSettingsPanel
+MenuSettingsCloseButton.Parent = MenuSettingsHeaderFrame
 MenuSettingsCloseButton.Text = "←"
 MenuSettingsCloseButton.Size = UDim2.new(0, 20, 0, 20)
 MenuSettingsCloseButton.Position = UDim2.new(1, -25, 0, 5)
@@ -461,9 +537,8 @@ local function setupButtonFeedback(button)
         button.MouseButton1Up:Connect(function()
             button.BackgroundColor3 = hoverColor
         end)
-        -- Возвращаем оригинальный цвет после клика
         button.MouseButton1Click:Connect(function()
-            wait() -- Небольшая задержка для эффекта
+            wait()
             button.BackgroundColor3 = originalColor
         end)
     end)
@@ -532,8 +607,12 @@ local function applyTheme()
     local success, result = pcall(function()
         if isDarkTheme then
             MenuFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            HeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
             MenuSettingsPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
             MinimizedContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            HeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             ActivateButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
             WallHackButton.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
             SpeedHackButton.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
@@ -553,8 +632,12 @@ local function applyTheme()
             end
         else
             MenuFrame.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+            HeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
             MenuSettingsPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+            MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
             MinimizedContentLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+            HeaderLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+            MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
             ActivateButton.BackgroundColor3 = Color3.fromRGB(150, 150, 255)
             WallHackButton.BackgroundColor3 = Color3.fromRGB(180, 100, 180)
             SpeedHackButton.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
@@ -562,7 +645,7 @@ local function applyTheme()
             MenuSettingsButton.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
             NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
             TeleportButton.BackgroundColor3 = Color3.fromRGB(100, 255, 255)
-            InfiniteJumpButton.BackgroundColor3 = isDarkTheme and Color3.fromRGB(0, 200, 200) or Color3.fromRGB(100, 255, 255) -- Исправлена лишняя скобка
+            InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(100, 255, 255)
             TeleportPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
             TeleportHeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
             SpeedSettingsPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
@@ -599,6 +682,9 @@ local function animateMenuAppearance()
             Size = UDim2.new(0, 400, 0, 300)
         })
         tween:Play()
+        HeaderFrame.Position = UDim2.new(0, 0, 0, -30)
+        local headerTween = TweenService:Create(HeaderFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 0, 0, 0)})
+        headerTween:Play()
     end)
     if success then
         print("Анимация меню выполнена")
@@ -682,7 +768,6 @@ local function animateSpeedSettingsPanelDisappearance(callback)
     end
 end
 
--- Анимация для MenuSettingsPanel
 local function animateMenuSettingsPanelAppearance()
     local success, result = pcall(function()
         MenuSettingsPanel.Size = UDim2.new(0, 0, 0, 0)
@@ -693,6 +778,10 @@ local function animateMenuSettingsPanelAppearance()
             Size = UDim2.new(0, 400, 0, 300)
         })
         tween:Play()
+        -- Анимация шторки
+        MenuSettingsHeaderFrame.Position = UDim2.new(0, 0, 0, -30)
+        local headerTween = TweenService:Create(MenuSettingsHeaderFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 0, 0, 0)})
+        headerTween:Play()
     end)
     if success then
         print("Анимация появления MenuSettingsPanel выполнена")
@@ -770,6 +859,8 @@ local function startDragging(input)
             frame = SpeedSettingsPanel
         elseif isMouseOverFrame(mousePos, TeleportPanel) and not isTouchingButton(mousePos, TeleportPanel) then
             frame = TeleportPanel
+        elseif isMouseOverFrame(mousePos, HeaderFrame) and not isTouchingButton(mousePos, MenuFrame) then
+            frame = MenuFrame
         elseif isMouseOverFrame(mousePos, MenuFrame) and not isTouchingButton(mousePos, MenuFrame) then
             frame = MenuFrame
         elseif isMouseOverFrame(mousePos, MenuFrame) and ExpandButton.Visible then
@@ -814,6 +905,9 @@ local function endDragging(input)
     end
 end
 
+HeaderFrame.InputBegan:Connect(startDragging)
+HeaderFrame.InputChanged:Connect(updateDragging)
+HeaderFrame.InputEnded:Connect(endDragging)
 MenuFrame.InputBegan:Connect(startDragging)
 MenuFrame.InputChanged:Connect(updateDragging)
 MenuFrame.InputEnded:Connect(endDragging)
@@ -829,6 +923,9 @@ SpeedSettingsPanel.InputEnded:Connect(endDragging)
 MenuSettingsPanel.InputBegan:Connect(startDragging)
 MenuSettingsPanel.InputChanged:Connect(updateDragging)
 MenuSettingsPanel.InputEnded:Connect(endDragging)
+MenuSettingsHeaderFrame.InputBegan:Connect(startDragging) -- Добавляем перетаскивание через шторку
+MenuSettingsHeaderFrame.InputChanged:Connect(updateDragging)
+MenuSettingsHeaderFrame.InputEnded:Connect(endDragging)
 
 -- Сохранение и загрузка позиции меню
 local function savePosition()
@@ -897,6 +994,9 @@ local function cleanup()
     end
 end
 
+table.insert(connections, HeaderFrame.InputBegan:Connect(startDragging))
+table.insert(connections, HeaderFrame.InputChanged:Connect(updateDragging))
+table.insert(connections, HeaderFrame.InputEnded:Connect(endDragging))
 table.insert(connections, MenuFrame.InputBegan:Connect(startDragging))
 table.insert(connections, MenuFrame.InputChanged:Connect(updateDragging))
 table.insert(connections, MenuFrame.InputEnded:Connect(endDragging))
@@ -912,6 +1012,9 @@ table.insert(connections, SpeedSettingsPanel.InputEnded:Connect(endDragging))
 table.insert(connections, MenuSettingsPanel.InputBegan:Connect(startDragging))
 table.insert(connections, MenuSettingsPanel.InputChanged:Connect(updateDragging))
 table.insert(connections, MenuSettingsPanel.InputEnded:Connect(endDragging))
+table.insert(connections, MenuSettingsHeaderFrame.InputBegan:Connect(startDragging))
+table.insert(connections, MenuSettingsHeaderFrame.InputChanged:Connect(updateDragging))
+table.insert(connections, MenuSettingsHeaderFrame.InputEnded:Connect(endDragging))
 table.insert(connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.H then
@@ -937,10 +1040,7 @@ MinimizeButton.MouseButton1Click:Connect(function()
         if NoclipButton then NoclipButton.Visible = false end
         if TeleportButton then TeleportButton.Visible = false end
         if InfiniteJumpButton then InfiniteJumpButton.Visible = false end
-        if CloseButton then CloseButton.Visible = false end
-        if MinimizeButton then MinimizeButton.Visible = false end
-        if ThemeButton then ThemeButton.Visible = false end
-        if MenuSettingsButton then MenuSettingsButton.Visible = false end
+        if HeaderFrame then HeaderFrame.Visible = false end
         if ExpandButton then ExpandButton.Visible = true end
         local tween = TweenService:Create(MenuFrame, tweenInfo, {Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = 0.3})
         tween:Play()
@@ -962,10 +1062,7 @@ ExpandButton.MouseButton1Click:Connect(function()
         if NoclipButton then NoclipButton.Visible = true end
         if TeleportButton then TeleportButton.Visible = true end
         if InfiniteJumpButton then InfiniteJumpButton.Visible = true end
-        if CloseButton then CloseButton.Visible = true end
-        if MinimizeButton then MinimizeButton.Visible = true end
-        if ThemeButton then ThemeButton.Visible = true end
-        if MenuSettingsButton then MenuSettingsButton.Visible = true end
+        if HeaderFrame then HeaderFrame.Visible = true end
         if ExpandButton then ExpandButton.Visible = false end
         local tween = TweenService:Create(MenuFrame, tweenInfo, {Size = UDim2.new(0, 400, 0, 300), BackgroundTransparency = 0})
         tween:Play()
