@@ -1198,7 +1198,7 @@ SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
         local success, result = pcall(function()
             local speed = tonumber(SpeedSettingsInput.Text)
-            if speed and speed >= 16 and speed <= 2500 then
+            if speed and speed >= 0 then
                 if isSpeedHackEnabled then
                     setSpeed(speed, true)
                 end
@@ -1207,7 +1207,7 @@ SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
                 speedValue.Parent = ReplicatedStorage
                 speedValue.Value = speed
             else
-                showNotification("Введите число от 16 до 2500!", Color3.fromRGB(255, 0, 0))
+                showNotification("Введите число больше или равно 0!", Color3.fromRGB(255, 0, 0))
                 SpeedSettingsInput.Text = tostring(defaultSpeed)
             end
         end)
@@ -1516,7 +1516,7 @@ local function updatePlayerList()
             button.MouseButton1Click:Connect(function()
                 local success, result = pcall(function()
                     if player.Character and player.Character.HumanoidRootPart and LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
                         showNotification("Телепортирован к " .. player.Name, Color3.fromRGB(0, 255, 0))
                     else
                         showNotification("Игрок или персонаж недоступен!", Color3.fromRGB(255, 0, 0))
