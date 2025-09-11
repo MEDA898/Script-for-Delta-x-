@@ -1074,17 +1074,41 @@ end)
 
 -- Обработчик кнопки настроек меню
 MenuSettingsButton.MouseButton1Click:Connect(function()
-    MenuFrame.Visible = false
-    animateMenuSettingsPanelAppearance()
-    showNotification("Открыты настройки меню", Color3.fromRGB(0, 255, 0))
+    local success, result = pcall(function()
+        -- Сохраняем текущую позицию MenuFrame
+        local menuPos = MenuFrame.Position
+        -- Проверяем позицию через clampPosition, чтобы не выходила за экран
+        local clampedPos = clampPosition(menuPos, MenuSettingsPanel.AbsoluteSize)
+        MenuFrame.Visible = false
+        -- Устанавливаем позицию MenuSettingsPanel равной позиции MenuFrame
+        MenuSettingsPanel.Position = clampedPos
+        animateMenuSettingsPanelAppearance()
+        showNotification("Открыты настройки меню", Color3.fromRGB(0, 255, 0))
+    end)
+    if not success then
+        warn("Ошибка открытия настроек: " .. tostring(result))
+        showNotification("Ошибка открытия настроек!", Color3.fromRGB(255, 0, 0))
+    end
 end)
 
 -- Обработчик кнопки закрытия настроек меню
 MenuSettingsCloseButton.MouseButton1Click:Connect(function()
-    animateMenuSettingsPanelDisappearance(function()
-        MenuFrame.Visible = true
-        showNotification("Настройки меню закрыты", Color3.fromRGB(255, 0, 0))
+    local success, result = pcall(function()
+        -- Сохраняем текущую позицию MenuSettingsPanel
+        local settingsPos = MenuSettingsPanel.Position
+        animateMenuSettingsPanelDisappearance(function()
+            -- Устанавливаем MenuFrame в позицию MenuSettingsPanel
+            MenuFrame.Position = settingsPos
+            MenuFrame.Visible = true
+            -- Сохраняем новую позицию MenuFrame
+            savePosition()
+            showNotification("Настройки меню закрыты", Color3.fromRGB(255, 0, 0))
+        end)
     end)
+    if not success then
+        warn("Ошибка закрытия настроек: " .. tostring(result))
+        showNotification("Ошибка закрытия настроек!", Color3.fromRGB(255, 0, 0))
+    end
 end)
 
 -- Активация Fly
@@ -1594,27 +1618,4 @@ local function cleanupSpeedHack()
     end
 end
 
--- Обновлённая функция очистки
-local function cleanup()
-    cleanupNoclip()
-    cleanupInfiniteJump()
-    cleanupSpeedHack()
-    for _, connection in ipairs(connections) do
-        connection:Disconnect()
-    end
-    if ScreenGui then
-        ScreenGui:Destroy()
-    end
-    if TeleportPanel then
-        TeleportPanel:Destroy()
-    end
-    if SpeedSettingsPanel then
-        SpeedSettingsPanel:Destroy()
-    end
-    if MenuSettingsPanel then
-        MenuSettingsPanel:Destroy()
-    end
-    print("Скрипт полностью очищен")
-end
-
-game:BindToClose(cleanup)
+-- Обновлённая функция очи
