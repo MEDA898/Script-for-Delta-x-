@@ -1,1687 +1,2690 @@
--- Получаем необходимые сервисы
+--========================================================--
+--                    MEDA HUB v3                        --
+--       Modern UI / Русская настройка / Drag Opacity    --
+--========================================================--
+
+--// Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+--// Player
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 5)
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Проверка PlayerGui
-if not PlayerGui then
-warn("PlayerGui не найден!")
-return
+--========================================================--
+-- CONFIG
+--========================================================--
+
+local MENU_WIDTH = 440
+local MENU_HEIGHT = 340
+
+local PANEL_WIDTH = 300
+local PANEL_HEIGHT = 340
+
+local DEFAULT_SPEED = 16
+local MIN_SPEED = 16
+local MAX_SPEED = 2500
+
+local isDarkTheme = true
+local allowOutOfBounds = false
+
+--========================================================--
+-- DRAG TRANSPARENCY
+--========================================================--
+
+local dragTransparency = 0.45
+
+local MIN_DRAG_TRANSPARENCY = 0
+local MAX_DRAG_TRANSPARENCY = 0.85
+
+local isDraggingMenu = false
+local dragTransparencyObjects = {}
+
+--========================================================--
+-- COLORS
+--========================================================--
+
+local Dark = {
+    Background = Color3.fromRGB(12, 14, 20),
+    Header = Color3.fromRGB(17, 19, 27),
+    Surface = Color3.fromRGB(21, 24, 33),
+    Surface2 = Color3.fromRGB(28, 32, 43),
+    SurfaceHover = Color3.fromRGB(36, 40, 53),
+
+    Text = Color3.fromRGB(245, 246, 250),
+    SubText = Color3.fromRGB(145, 151, 166),
+
+    Stroke = Color3.fromRGB(52, 58, 75),
+
+    Accent = Color3.fromRGB(105, 88, 255),
+    Accent2 = Color3.fromRGB(151, 105, 255),
+
+    Green = Color3.fromRGB(45, 210, 125),
+    Red = Color3.fromRGB(235, 70, 85),
+
+    Input = Color3.fromRGB(18, 21, 29)
+}
+
+local Light = {
+    Background = Color3.fromRGB(238, 240, 245),
+    Header = Color3.fromRGB(248, 249, 252),
+    Surface = Color3.fromRGB(250, 251, 253),
+    Surface2 = Color3.fromRGB(227, 230, 237),
+    SurfaceHover = Color3.fromRGB(216, 219, 228),
+
+    Text = Color3.fromRGB(28, 30, 38),
+    SubText = Color3.fromRGB(105, 110, 122),
+
+    Stroke = Color3.fromRGB(204, 208, 218),
+
+    Accent = Color3.fromRGB(91, 75, 220),
+    Accent2 = Color3.fromRGB(124, 96, 235),
+
+    Green = Color3.fromRGB(40, 175, 105),
+    Red = Color3.fromRGB(220, 60, 75),
+
+    Input = Color3.fromRGB(242, 243, 247)
+}
+
+local function C()
+    return isDarkTheme and Dark or Light
 end
-print("PlayerGui успешно найден")
 
--- Создаем ScreenGui
+--========================================================--
+-- GUI
+--========================================================--
+
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = PlayerGui
+ScreenGui.Name = "MedaHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-print("ScreenGui создан")
+ScreenGui.Parent = PlayerGui
 
--- Создаем основной фрейм меню
+--========================================================--
+-- UTILITY
+--========================================================--
+
+local function addCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 10)
+    c.Parent = parent
+    return c
+end
+
+local function addStroke(parent, color, thickness, transparency)
+    local s = Instance.new("UIStroke")
+    s.Color = color or C().Stroke
+    s.Thickness = thickness or 1
+    s.Transparency = transparency or 0
+    s.Parent = parent
+    return s
+end
+
+local function addGradient(parent, color1, color2, rotation)
+    local g = Instance.new("UIGradient")
+
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color1),
+        ColorSequenceKeypoint.new(1, color2)
+    })
+
+    g.Rotation = rotation or 0
+    g.Parent = parent
+
+    return g
+end
+
+local function createLabel(parent, text, size, position, font, textSize)
+    local label = Instance.new("TextLabel")
+
+    label.Parent = parent
+    label.BackgroundTransparency = 1
+    label.Size = size
+    label.Position = position
+    label.Text = text
+    label.TextColor3 = C().Text
+    label.Font = font or Enum.Font.Gotham
+    label.TextSize = textSize or 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+
+    return label
+end
+
+local function tween(instance, info, properties)
+    return TweenService:Create(instance, info, properties)
+end
+
+local FAST_TWEEN = TweenInfo.new(
+    0.12,
+    Enum.EasingStyle.Quart,
+    Enum.EasingDirection.Out
+)
+
+local NORMAL_TWEEN = TweenInfo.new(
+    0.22,
+    Enum.EasingStyle.Quart,
+    Enum.EasingDirection.Out
+)
+
+--========================================================--
+-- NOTIFICATIONS
+--========================================================--
+
+local NotificationHolder = Instance.new("Frame")
+
+NotificationHolder.Parent = ScreenGui
+NotificationHolder.Size = UDim2.fromOffset(320, 400)
+NotificationHolder.Position = UDim2.new(1, -335, 0, 20)
+NotificationHolder.BackgroundTransparency = 1
+NotificationHolder.ZIndex = 200
+
+local NotificationLayout = Instance.new("UIListLayout")
+
+NotificationLayout.Parent = NotificationHolder
+NotificationLayout.Padding = UDim.new(0, 8)
+NotificationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+NotificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function showNotification(message, notificationColor)
+    local holder = Instance.new("Frame")
+
+    holder.Parent = NotificationHolder
+    holder.Size = UDim2.fromOffset(300, 54)
+    holder.BackgroundColor3 = C().Surface
+    holder.BackgroundTransparency = 1
+    holder.BorderSizePixel = 0
+    holder.ZIndex = 201
+
+    addCorner(holder, 12)
+    addStroke(holder, C().Stroke, 1, 0.15)
+
+    local accent = Instance.new("Frame")
+
+    accent.Parent = holder
+    accent.Size = UDim2.fromOffset(4, 34)
+    accent.Position = UDim2.fromOffset(8, 10)
+    accent.BackgroundColor3 = notificationColor or C().Accent
+    accent.BorderSizePixel = 0
+    accent.ZIndex = 202
+
+    addCorner(accent, 3)
+
+    local text = createLabel(
+        holder,
+        message,
+        UDim2.new(1, -35, 1, 0),
+        UDim2.fromOffset(22, 0),
+        Enum.Font.GothamMedium,
+        12
+    )
+
+    text.TextTransparency = 1
+    text.ZIndex = 202
+
+    tween(holder, NORMAL_TWEEN, {
+        BackgroundTransparency = 0
+    }):Play()
+
+    tween(text, NORMAL_TWEEN, {
+        TextTransparency = 0
+    }):Play()
+
+    task.delay(2.3, function()
+        if holder and holder.Parent then
+            local out = tween(holder, NORMAL_TWEEN, {
+                BackgroundTransparency = 1,
+                Size = UDim2.fromOffset(260, 0)
+            })
+
+            tween(text, NORMAL_TWEEN, {
+                TextTransparency = 1
+            }):Play()
+
+            out:Play()
+
+            out.Completed:Connect(function()
+                if holder then
+                    holder:Destroy()
+                end
+            end)
+        end
+    end)
+end
+
+--========================================================--
+-- MAIN MENU
+--========================================================--
+
 local MenuFrame = Instance.new("Frame")
+
+MenuFrame.Name = "MenuFrame"
 MenuFrame.Parent = ScreenGui
-MenuFrame.Size = UDim2.new(0, 400, 0, 300)
-MenuFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
-MenuFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MenuFrame.Size = UDim2.fromOffset(MENU_WIDTH, MENU_HEIGHT)
+
+MenuFrame.Position = UDim2.new(
+    0.5,
+    -MENU_WIDTH / 2,
+    0.5,
+    -MENU_HEIGHT / 2
+)
+
+MenuFrame.BackgroundColor3 = C().Background
 MenuFrame.BorderSizePixel = 0
 MenuFrame.Active = true
 MenuFrame.ClipsDescendants = true
-MenuFrame.BackgroundTransparency = 1
-print("MenuFrame создан")
+MenuFrame.ZIndex = 10
 
--- Скругленные углы
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MenuFrame
+addCorner(MenuFrame, 16)
+addStroke(MenuFrame, C().Stroke, 1, 0.05)
 
--- Создаем шторку (HeaderFrame) для основного меню
+--========================================================--
+-- HEADER
+--========================================================--
+
 local HeaderFrame = Instance.new("Frame")
+
+HeaderFrame.Name = "HeaderFrame"
 HeaderFrame.Parent = MenuFrame
-HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
-HeaderFrame.Position = UDim2.new(0, 0, 0, 0)
-HeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+HeaderFrame.Size = UDim2.new(1, 0, 0, 68)
+HeaderFrame.BackgroundColor3 = C().Header
 HeaderFrame.BorderSizePixel = 0
-HeaderFrame.ZIndex = 3
-HeaderFrame.ClipsDescendants = true
+HeaderFrame.ZIndex = 11
+HeaderFrame.Active = true
 
--- Скругленные углы для шторки
-local HeaderUICorner = Instance.new("UICorner")
-HeaderUICorner.CornerRadius = UDim.new(0, 8)
-HeaderUICorner.Parent = HeaderFrame
+addCorner(HeaderFrame, 16)
 
--- Градиент для шторки
-local HeaderGradient = Instance.new("UIGradient")
-HeaderGradient.Color = ColorSequence.new({
-ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 70, 70)),
-ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 100, 100))
-})
-HeaderGradient.Rotation = 45
-HeaderGradient.Parent = HeaderFrame
+local HeaderBottom = Instance.new("Frame")
 
--- Текст в шторке
-local HeaderLabel = Instance.new("TextLabel")
-HeaderLabel.Parent = HeaderFrame
-HeaderLabel.Size = UDim2.new(0.5, -10, 1, 0)
-HeaderLabel.Position = UDim2.new(0, 10, 0, 0)
-HeaderLabel.BackgroundTransparency = 1
-HeaderLabel.Text = "Script v2 Roblox by @meda898"
-HeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-HeaderLabel.TextYAlignment = Enum.TextYAlignment.Center
-HeaderLabel.Font = Enum.Font.GothamBold
-HeaderLabel.TextSize = 14
-HeaderLabel.ZIndex = 3
+HeaderBottom.Parent = HeaderFrame
+HeaderBottom.Size = UDim2.new(1, -30, 0, 2)
+HeaderBottom.Position = UDim2.new(0, 15, 1, -2)
+HeaderBottom.BackgroundColor3 = C().Accent
+HeaderBottom.BorderSizePixel = 0
+HeaderBottom.ZIndex = 13
 
--- Текст для минимизированного содержимого
-local MinimizedContentLabel = Instance.new("TextLabel")
+addCorner(HeaderBottom, 2)
+
+addGradient(
+    HeaderBottom,
+    C().Accent,
+    C().Accent2,
+    0
+)
+
+--========================================================--
+-- LOGO
+--========================================================--
+
+local Logo = Instance.new("Frame")
+
+Logo.Parent = HeaderFrame
+Logo.Size = UDim2.fromOffset(40, 40)
+Logo.Position = UDim2.fromOffset(14, 14)
+Logo.BackgroundColor3 = C().Accent
+Logo.BorderSizePixel = 0
+Logo.ZIndex = 15
+
+addCorner(Logo, 11)
+
+addGradient(
+    Logo,
+    C().Accent,
+    C().Accent2,
+    45
+)
+
+local LogoText = createLabel(
+    Logo,
+    "M",
+    UDim2.fromScale(1, 1),
+    UDim2.fromScale(0, 0),
+    Enum.Font.GothamBold,
+    21
+)
+
+LogoText.TextColor3 = Color3.new(1, 1, 1)
+LogoText.TextXAlignment = Enum.TextXAlignment.Center
+LogoText.ZIndex = 16
+
+--========================================================--
+-- TITLE
+--========================================================--
+
+local HeaderLabel = createLabel(
+    HeaderFrame,
+    "MEDA HUB",
+    UDim2.fromOffset(200, 24),
+    UDim2.fromOffset(65, 9),
+    Enum.Font.GothamBold,
+    16
+)
+
+HeaderLabel.ZIndex = 15
+
+local HeaderSub = createLabel(
+    HeaderFrame,
+    "Script v3  •  @meda898",
+    UDim2.fromOffset(220, 20),
+    UDim2.fromOffset(65, 33),
+    Enum.Font.Gotham,
+    11
+)
+
+HeaderSub.TextColor3 = C().SubText
+HeaderSub.ZIndex = 15
+
+--========================================================--
+-- HEADER BUTTON
+--========================================================--
+
+local function makeHeaderButton(symbol, offset)
+    local button = Instance.new("TextButton")
+
+    button.Parent = HeaderFrame
+    button.Size = UDim2.fromOffset(30, 30)
+    button.Position = UDim2.new(1, offset, 0, 19)
+
+    button.BackgroundColor3 = C().Surface2
+    button.BorderSizePixel = 0
+    button.Text = symbol
+    button.TextColor3 = C().Text
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 14
+    button.AutoButtonColor = false
+    button.ZIndex = 20
+
+    addCorner(button, 8)
+    addStroke(button, C().Stroke, 1, 0.25)
+
+    return button
+end
+
+local MenuSettingsButton = makeHeaderButton("⚙", -157)
+local ThemeButton = makeHeaderButton("☾", -120)
+local MinimizeButton = makeHeaderButton("—", -83)
+local CloseButton = makeHeaderButton("×", -46)
+
+CloseButton.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
+
+--========================================================--
+-- CONTENT
+--========================================================--
+
+local Content = Instance.new("Frame")
+
+Content.Parent = MenuFrame
+Content.Size = UDim2.new(1, -30, 1, -84)
+Content.Position = UDim2.fromOffset(15, 77)
+Content.BackgroundTransparency = 1
+Content.ZIndex = 11
+
+local SectionTitle = createLabel(
+    Content,
+    "MOVEMENT",
+    UDim2.new(1, 0, 0, 20),
+    UDim2.fromOffset(2, 0),
+    Enum.Font.GothamBold,
+    10
+)
+
+SectionTitle.TextColor3 = C().SubText
+SectionTitle.ZIndex = 12
+
+--========================================================--
+-- FEATURE BUTTON
+--========================================================--
+
+local featureData = {}
+
+local function createFeatureButton(text, icon, x, y)
+    local button = Instance.new("TextButton")
+
+    button.Parent = Content
+    button.Size = UDim2.fromOffset(198, 58)
+    button.Position = UDim2.fromOffset(x, y)
+    button.BackgroundColor3 = C().Surface
+    button.BorderSizePixel = 0
+    button.Text = ""
+    button.AutoButtonColor = false
+    button.ZIndex = 12
+
+    addCorner(button, 11)
+    addStroke(button, C().Stroke, 1, 0.2)
+
+    local iconBox = Instance.new("Frame")
+
+    iconBox.Parent = button
+    iconBox.Size = UDim2.fromOffset(36, 36)
+    iconBox.Position = UDim2.fromOffset(10, 11)
+    iconBox.BackgroundColor3 = C().Surface2
+    iconBox.BorderSizePixel = 0
+    iconBox.ZIndex = 13
+
+    addCorner(iconBox, 9)
+
+    local iconLabel = createLabel(
+        iconBox,
+        icon,
+        UDim2.fromScale(1, 1),
+        UDim2.fromScale(0, 0),
+        Enum.Font.GothamBold,
+        16
+    )
+
+    iconLabel.TextXAlignment = Enum.TextXAlignment.Center
+    iconLabel.TextColor3 = C().Accent
+    iconLabel.ZIndex = 14
+
+    local title = createLabel(
+        button,
+        text,
+        UDim2.fromOffset(135, 21),
+        UDim2.fromOffset(56, 8),
+        Enum.Font.GothamBold,
+        12
+    )
+
+    title.ZIndex = 14
+
+    local status = createLabel(
+        button,
+        "●  OFF",
+        UDim2.fromOffset(120, 18),
+        UDim2.fromOffset(56, 31),
+        Enum.Font.Gotham,
+        10
+    )
+
+    status.TextColor3 = C().SubText
+    status.ZIndex = 14
+
+    featureData[button] = {
+        Status = status,
+        Icon = iconBox,
+        Title = title
+    }
+
+    return button, status
+end
+
+--========================================================--
+-- MAIN BUTTONS
+--========================================================--
+
+local ActivateButton, FlyStatus =
+    createFeatureButton("Fly", "✈", 0, 29)
+
+local WallHackButton, WallStatus =
+    createFeatureButton("WallHack", "◈", 212, 29)
+
+local SpeedHackButton, SpeedStatus =
+    createFeatureButton("SpeedHack", "ϟ", 0, 96)
+
+local NoclipButton, NoclipStatus =
+    createFeatureButton("Noclip", "◇", 212, 96)
+
+local InfiniteJumpButton, JumpStatus =
+    createFeatureButton("Infinite Jump", "↑", 0, 163)
+
+local TeleportButton, TeleportStatus =
+    createFeatureButton("Teleport", "◎", 212, 163)
+
+FlyStatus.Text = "ЗАГРУЗИТЬ"
+FlyStatus.TextColor3 = C().SubText
+
+--========================================================--
+-- SPEED SETTINGS BUTTON
+--========================================================--
+
+local SpeedSettingsButton = Instance.new("TextButton")
+
+SpeedSettingsButton.Parent = Content
+SpeedSettingsButton.Size = UDim2.fromOffset(24, 24)
+SpeedSettingsButton.Position = UDim2.fromOffset(173, 113)
+SpeedSettingsButton.BackgroundColor3 = C().Surface2
+SpeedSettingsButton.BorderSizePixel = 0
+SpeedSettingsButton.Text = "⚙"
+SpeedSettingsButton.TextColor3 = C().SubText
+SpeedSettingsButton.Font = Enum.Font.GothamBold
+SpeedSettingsButton.TextSize = 11
+SpeedSettingsButton.AutoButtonColor = false
+SpeedSettingsButton.ZIndex = 20
+
+addCorner(SpeedSettingsButton, 7)
+
+--========================================================--
+-- WALLHACK SETTINGS BUTTON
+--========================================================--
+
+-- Такая же кнопка, как у SpeedHack.
+local WallHackSettingsButton = Instance.new("TextButton")
+
+WallHackSettingsButton.Parent = Content
+WallHackSettingsButton.Size = UDim2.fromOffset(24, 24)
+
+-- Находится внутри карточки WallHack
+WallHackSettingsButton.Position = UDim2.fromOffset(385, 46)
+
+WallHackSettingsButton.BackgroundColor3 = C().Surface2
+WallHackSettingsButton.BorderSizePixel = 0
+WallHackSettingsButton.Text = "⚙"
+WallHackSettingsButton.TextColor3 = C().SubText
+WallHackSettingsButton.Font = Enum.Font.GothamBold
+WallHackSettingsButton.TextSize = 11
+WallHackSettingsButton.AutoButtonColor = false
+WallHackSettingsButton.ZIndex = 20
+
+addCorner(WallHackSettingsButton, 7)
+
+--========================================================--
+-- MINIMIZED
+--========================================================--
+
+local MinimizedContentLabel = Instance.new("TextButton")
+
 MinimizedContentLabel.Parent = MenuFrame
-MinimizedContentLabel.Text = "@meda898"
-MinimizedContentLabel.Size = UDim2.new(1, 0, 1, 0)
+MinimizedContentLabel.Size = UDim2.fromScale(1, 1)
 MinimizedContentLabel.BackgroundTransparency = 1
-MinimizedContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizedContentLabel.TextScaled = true
-MinimizedContentLabel.TextWrapped = true
+MinimizedContentLabel.Text = "M"
+MinimizedContentLabel.TextColor3 = Color3.new(1, 1, 1)
+MinimizedContentLabel.Font = Enum.Font.GothamBold
+MinimizedContentLabel.TextSize = 22
 MinimizedContentLabel.TextXAlignment = Enum.TextXAlignment.Center
 MinimizedContentLabel.TextYAlignment = Enum.TextYAlignment.Center
-MinimizedContentLabel.ZIndex = 2
+MinimizedContentLabel.AutoButtonColor = false
 MinimizedContentLabel.Visible = false
+MinimizedContentLabel.Active = true
+MinimizedContentLabel.ZIndex = 30
 
--- Кнопка для разворачивания
-local ExpandButton = Instance.new("TextButton")
-ExpandButton.Parent = MenuFrame
-ExpandButton.Size = UDim2.new(1, 0, 1, 0)
-ExpandButton.BackgroundTransparency = 1
-ExpandButton.Text = ""
-ExpandButton.ZIndex = 3
-ExpandButton.Visible = false
-ExpandButton.Active = true
+--========================================================--
+-- PANEL CREATOR
+--========================================================--
 
--- Кнопка "Закрыть"
-local CloseButton = Instance.new("TextButton")
-CloseButton.Parent = HeaderFrame
-CloseButton.Text = "X"
-CloseButton.Size = UDim2.new(0, 20, 0, 20)
-CloseButton.Position = UDim2.new(1, -25, 0, 5)
-CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.Font = Enum.Font.SourceSansBold
-CloseButton.TextSize = 14
-CloseButton.ZIndex = 3
-CloseButton.Visible = true
-CloseButton.Active = true
+local panelHeaders = {}
 
--- Кнопка "Свернуть"
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Parent = HeaderFrame
-MinimizeButton.Text = "_"
-MinimizeButton.Size = UDim2.new(0, 20, 0, 20)
-MinimizeButton.Position = UDim2.new(1, -50, 0, 5)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizeButton.Font = Enum.Font.SourceSansBold
-MinimizeButton.TextSize = 14
-MinimizeButton.ZIndex = 3
-MinimizeButton.Visible = true
-MinimizeButton.Active = true
+local function createPanel(name, title)
+    local panel = Instance.new("Frame")
 
--- Кнопка переключения темы
-local isDarkTheme = true
-local allowOutOfBounds = false
-local ThemeButton = Instance.new("TextButton")
-ThemeButton.Parent = HeaderFrame
-ThemeButton.Size = UDim2.new(0, 20, 0, 20)
-ThemeButton.Position = UDim2.new(1, -75, 0, 5)
-ThemeButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-ThemeButton.Text = "T"
-ThemeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-ThemeButton.Font = Enum.Font.SourceSansBold
-ThemeButton.TextSize = 14
-ThemeButton.ZIndex = 3
-ThemeButton.Active = true
+    panel.Name = name
+    panel.Parent = ScreenGui
+    panel.Size = UDim2.fromOffset(PANEL_WIDTH, PANEL_HEIGHT)
 
--- Кнопка-шестерёнка для настроек меню
-local MenuSettingsButton = Instance.new("TextButton")
-MenuSettingsButton.Parent = HeaderFrame
-MenuSettingsButton.Size = UDim2.new(0, 20, 0, 20)
-MenuSettingsButton.Position = UDim2.new(1, -100, 0, 5)
-MenuSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-MenuSettingsButton.Text = "⚙"
-MenuSettingsButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-MenuSettingsButton.Font = Enum.Font.SourceSansBold
-MenuSettingsButton.TextSize = 14
-MenuSettingsButton.ZIndex = 3
-MenuSettingsButton.Active = true
+    panel.Position = UDim2.new(
+        0.5,
+        -PANEL_WIDTH / 2,
+        0.5,
+        -PANEL_HEIGHT / 2
+    )
 
--- Кнопка "Activate Fly"
-local ActivateButton = Instance.new("TextButton")
-ActivateButton.Parent = MenuFrame
-ActivateButton.Size = UDim2.new(0, 150, 0, 40)
-ActivateButton.Position = UDim2.new(0, 10, 0, 40)
-ActivateButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-ActivateButton.Text = "Activate Fly"
-ActivateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ActivateButton.Font = Enum.Font.GothamBold
-ActivateButton.TextSize = 16
-ActivateButton.ZIndex = 2
-ActivateButton.AutoButtonColor = false
+    panel.BackgroundColor3 = C().Background
+    panel.BorderSizePixel = 0
+    panel.Visible = false
+    panel.Active = true
+    panel.ClipsDescendants = true
+    panel.ZIndex = 60
 
--- Кнопка "WallHack"
-local WallHackButton = Instance.new("TextButton")
-WallHackButton.Parent = MenuFrame
-WallHackButton.Size = UDim2.new(0, 150, 0, 40)
-WallHackButton.Position = UDim2.new(0, 185, 0, 40)
-WallHackButton.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
-WallHackButton.Text = "Toggle WallHack"
-WallHackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-WallHackButton.Font = Enum.Font.GothamBold
-WallHackButton.TextSize = 16
-WallHackButton.ZIndex = 2
-WallHackButton.AutoButtonColor = false
+    addCorner(panel, 16)
+    addStroke(panel, C().Stroke, 1, 0.05)
 
--- Кнопка "SpeedHack"
-local SpeedHackButton = Instance.new("TextButton")
-SpeedHackButton.Parent = MenuFrame
-SpeedHackButton.Size = UDim2.new(0, 150, 0, 40)
-SpeedHackButton.Position = UDim2.new(0, 10, 0, 90)
-SpeedHackButton.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
-SpeedHackButton.Text = "Toggle SpeedHack"
-SpeedHackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedHackButton.Font = Enum.Font.GothamBold
-SpeedHackButton.TextSize = 16
-SpeedHackButton.ZIndex = 2
-SpeedHackButton.AutoButtonColor = false
+    local header = Instance.new("Frame")
 
--- Кнопка-шестерёнка для настроек SpeedHack
-local SpeedSettingsButton = Instance.new("TextButton")
-SpeedSettingsButton.Parent = MenuFrame
-SpeedSettingsButton.Size = UDim2.new(0, 20, 0, 20)
-SpeedSettingsButton.Position = UDim2.new(0, 160, 0, 95)
-SpeedSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-SpeedSettingsButton.Text = "⚙"
-SpeedSettingsButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-SpeedSettingsButton.Font = Enum.Font.SourceSansBold
-SpeedSettingsButton.TextSize = 14
-SpeedSettingsButton.ZIndex = 2
+    header.Parent = panel
+    header.Size = UDim2.new(1, 0, 0, 58)
+    header.BackgroundColor3 = C().Header
+    header.BorderSizePixel = 0
+    header.ZIndex = 61
+    header.Active = true
 
--- Кнопка "Noclip"
-local NoclipButton = Instance.new("TextButton")
-NoclipButton.Parent = MenuFrame
-NoclipButton.Size = UDim2.new(0, 150, 0, 40)
-NoclipButton.Position = UDim2.new(0, 185, 0, 90)
-NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-NoclipButton.Text = "Toggle Noclip"
-NoclipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-NoclipButton.Font = Enum.Font.GothamBold
-NoclipButton.TextSize = 16
-NoclipButton.ZIndex = 2
-NoclipButton.AutoButtonColor = false
-print("NoclipButton создан")
+    addCorner(header, 16)
 
--- Кнопка "Teleport to Player"
-local TeleportButton = Instance.new("TextButton")
-TeleportButton.Parent = MenuFrame
-TeleportButton.Size = UDim2.new(0, 150, 0, 40)
-TeleportButton.Position = UDim2.new(0, 185, 0, 140)
-TeleportButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-TeleportButton.Text = "Teleport to Player"
-TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-TeleportButton.Font = Enum.Font.GothamBold
-TeleportButton.TextSize = 16
-TeleportButton.ZIndex = 2
-TeleportButton.AutoButtonColor = false
+    local line = Instance.new("Frame")
 
--- Кнопка "Infinite Jump"
-local InfiniteJumpButton = Instance.new("TextButton")
-InfiniteJumpButton.Parent = MenuFrame
-InfiniteJumpButton.Size = UDim2.new(0, 150, 0, 40)
-InfiniteJumpButton.Position = UDim2.new(0, 10, 0, 140)
-InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
-InfiniteJumpButton.Text = "Toggle Infinite Jump"
-InfiniteJumpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-InfiniteJumpButton.Font = Enum.Font.GothamBold
-InfiniteJumpButton.TextSize = 16
-InfiniteJumpButton.ZIndex = 2
-InfiniteJumpButton.AutoButtonColor = false
-print("InfiniteJumpButton создан")
+    line.Parent = header
+    line.Size = UDim2.new(1, -28, 0, 2)
+    line.Position = UDim2.new(0, 14, 1, -2)
+    line.BackgroundColor3 = C().Accent
+    line.BorderSizePixel = 0
+    line.ZIndex = 63
 
--- Панель для списка игроков
-local TeleportPanel = Instance.new("Frame")
-TeleportPanel.Parent = ScreenGui
-TeleportPanel.Size = UDim2.new(0, 200, 0, 300)
-TeleportPanel.Position = UDim2.new(0.5, -100, 0.5, -150)
-TeleportPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-TeleportPanel.BorderSizePixel = 0
-TeleportPanel.Visible = false
-TeleportPanel.ClipsDescendants = true
-TeleportPanel.ZIndex = 5
-TeleportPanel.Active = true
-TeleportPanel.BackgroundTransparency = 1
+    addCorner(line, 2)
 
-local TeleportPanelUICorner = Instance.new("UICorner")
-TeleportPanelUICorner.CornerRadius = UDim.new(0, 10)
-TeleportPanelUICorner.Parent = TeleportPanel
+    local titleLabel = createLabel(
+        header,
+        title,
+        UDim2.new(1, -70, 1, 0),
+        UDim2.fromOffset(16, 0),
+        Enum.Font.GothamBold,
+        15
+    )
 
--- Шапка для TeleportPanel
-local TeleportHeaderFrame = Instance.new("Frame")
-TeleportHeaderFrame.Parent = TeleportPanel
-TeleportHeaderFrame.Size = UDim2.new(1, 0, 0, 25)
-TeleportHeaderFrame.Position = UDim2.new(0, 0, 0, 0)
-TeleportHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-TeleportHeaderFrame.BorderSizePixel = 0
-TeleportHeaderFrame.ZIndex = 6
+    titleLabel.ZIndex = 64
 
-local TeleportHeaderLabel = Instance.new("TextLabel")
-TeleportHeaderLabel.Parent = TeleportHeaderFrame
-TeleportHeaderLabel.Size = UDim2.new(1, -30, 1, 0)
-TeleportHeaderLabel.Position = UDim2.new(0, 5, 0, 0)
-TeleportHeaderLabel.BackgroundTransparency = 1
-TeleportHeaderLabel.Text = "Teleport Panel"
-TeleportHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TeleportHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-TeleportHeaderLabel.Font = Enum.Font.GothamBold
-TeleportHeaderLabel.TextSize = 14
-TeleportHeaderLabel.ZIndex = 6
+    local close = Instance.new("TextButton")
 
--- ScrollingFrame для списка игроков
-local PlayerList = Instance.new("ScrollingFrame")
-PlayerList.Parent = TeleportPanel
-PlayerList.Size = UDim2.new(1, -10, 1, -65)
-PlayerList.Position = UDim2.new(0, 5, 0, 30)
-PlayerList.BackgroundTransparency = 1
-PlayerList.ScrollBarThickness = 5
-PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-PlayerList.ZIndex = 6
+    close.Parent = header
+    close.Size = UDim2.fromOffset(31, 31)
+    close.Position = UDim2.new(1, -45, 0, 13)
 
--- UIListLayout для списка игроков
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.Parent = PlayerList
-ListLayout.Padding = UDim.new(0, 5)
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    close.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
+    close.BorderSizePixel = 0
+    close.Text = "×"
+    close.TextColor3 = Color3.new(1, 1, 1)
+    close.Font = Enum.Font.GothamBold
+    close.TextSize = 16
+    close.AutoButtonColor = false
+    close.ZIndex = 65
 
--- Кнопка "Close" для панели
-local TeleportCloseButton = Instance.new("TextButton")
-TeleportCloseButton.Parent = TeleportPanel
-TeleportCloseButton.Text = "X"
-TeleportCloseButton.Size = UDim2.new(0, 20, 0, 20)
-TeleportCloseButton.Position = UDim2.new(1, -25, 0, 5)
-TeleportCloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-TeleportCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-TeleportCloseButton.Font = Enum.Font.SourceSansBold
-TeleportCloseButton.TextSize = 14
-TeleportCloseButton.ZIndex = 6
+    addCorner(close, 8)
 
--- Панель настроек SpeedHack
-local SpeedSettingsPanel = Instance.new("Frame")
-SpeedSettingsPanel.Parent = ScreenGui
-SpeedSettingsPanel.Size = UDim2.new(0, 200, 0, 300)
-SpeedSettingsPanel.Position = UDim2.new(0.5, -100, 0.5, -150)
-SpeedSettingsPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-SpeedSettingsPanel.BorderSizePixel = 0
-SpeedSettingsPanel.Visible = false
-SpeedSettingsPanel.ClipsDescendants = true
-SpeedSettingsPanel.ZIndex = 5
-SpeedSettingsPanel.Active = true
-SpeedSettingsPanel.BackgroundTransparency = 1
+    local body = Instance.new("ScrollingFrame")
 
-local SpeedSettingsUICorner = Instance.new("UICorner")
-SpeedSettingsUICorner.CornerRadius = UDim.new(0, 10)
-SpeedSettingsUICorner.Parent = SpeedSettingsPanel
+    body.Parent = panel
+    body.Size = UDim2.new(1, -24, 1, -74)
+    body.Position = UDim2.fromOffset(12, 66)
+    body.BackgroundTransparency = 1
+    body.BorderSizePixel = 0
+    body.ScrollBarThickness = 3
+    body.ScrollBarImageColor3 = C().Accent
+    body.CanvasSize = UDim2.new(0, 0, 0, 0)
+    body.ZIndex = 62
 
--- Шапка для SpeedSettingsPanel
-local SpeedSettingsHeaderFrame = Instance.new("Frame")
-SpeedSettingsHeaderFrame.Parent = SpeedSettingsPanel
-SpeedSettingsHeaderFrame.Size = UDim2.new(1, 0, 0, 25)
-SpeedSettingsHeaderFrame.Position = UDim2.new(0, 0, 0, 0)
-SpeedSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-SpeedSettingsHeaderFrame.BorderSizePixel = 0
-SpeedSettingsHeaderFrame.ZIndex = 6
+    local layout = Instance.new("UIListLayout")
 
-local SpeedSettingsHeaderLabel = Instance.new("TextLabel")
-SpeedSettingsHeaderLabel.Parent = SpeedSettingsHeaderFrame
-SpeedSettingsHeaderLabel.Size = UDim2.new(1, -30, 1, 0)
-SpeedSettingsHeaderLabel.Position = UDim2.new(0, 5, 0, 0)
-SpeedSettingsHeaderLabel.BackgroundTransparency = 1
-SpeedSettingsHeaderLabel.Text = "Speed Settings"
-SpeedSettingsHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedSettingsHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-SpeedSettingsHeaderLabel.Font = Enum.Font.GothamBold
-SpeedSettingsHeaderLabel.TextSize = 14
-SpeedSettingsHeaderLabel.ZIndex = 6
+    layout.Parent = body
+    layout.Padding = UDim.new(0, 5)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local SpeedSettingsList = Instance.new("ScrollingFrame")
-SpeedSettingsList.Parent = SpeedSettingsPanel
-SpeedSettingsList.Size = UDim2.new(1, -10, 1, -65)
-SpeedSettingsList.Position = UDim2.new(0, 5, 0, 30)
-SpeedSettingsList.BackgroundTransparency = 1
-SpeedSettingsList.ScrollBarThickness = 5
-SpeedSettingsList.CanvasSize = UDim2.new(0, 0, 0, 0)
-SpeedSettingsList.ZIndex = 6
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        body.CanvasSize = UDim2.fromOffset(
+            0,
+            layout.AbsoluteContentSize.Y + 8
+        )
+    end)
 
-local SpeedSettingsListLayout = Instance.new("UIListLayout")
-SpeedSettingsListLayout.Parent = SpeedSettingsList
-SpeedSettingsListLayout.Padding = UDim.new(0, 5)
-SpeedSettingsListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    panelHeaders[panel] = header
 
-local SpeedSettingsCloseButton = Instance.new("TextButton")
-SpeedSettingsCloseButton.Parent = SpeedSettingsPanel
-SpeedSettingsCloseButton.Text = "X"
-SpeedSettingsCloseButton.Size = UDim2.new(0, 20, 0, 20)
-SpeedSettingsCloseButton.Position = UDim2.new(1, -25, 0, 5)
-SpeedSettingsCloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-SpeedSettingsCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedSettingsCloseButton.Font = Enum.Font.SourceSansBold
-SpeedSettingsCloseButton.TextSize = 14
-SpeedSettingsCloseButton.ZIndex = 6
+    return panel, header, close, body
+end
 
--- Элементы настроек SpeedHack
+--========================================================--
+-- PANELS
+--========================================================--
+
+local TeleportPanel,
+TeleportHeaderFrame,
+TeleportCloseButton,
+PlayerList =
+    createPanel("TeleportPanel", "◎  TELEPORT")
+
+local SpeedSettingsPanel,
+SpeedSettingsHeaderFrame,
+SpeedSettingsCloseButton,
+SpeedSettingsList =
+    createPanel("SpeedSettingsPanel", "ϟ  НАСТРОЙКИ СКОРОСТИ")
+
+--========================================================--
+-- WALLHACK SETTINGS PANEL
+--========================================================--
+
+-- Полностью такой же тип панели, как SpeedSettingsPanel.
+-- Внутри пока ничего не добавляем.
+local WallHackSettingsPanel,
+WallHackSettingsHeaderFrame,
+WallHackSettingsCloseButton,
+WallHackSettingsList =
+    createPanel("WallHackSettingsPanel", "◈  НАСТРОЙКИ WALLHACK")
+
+local MenuSettingsPanel,
+MenuSettingsHeaderFrame,
+MenuSettingsCloseButton,
+MenuSettingsList =
+    createPanel("MenuSettingsPanel", "⚙  НАСТРОЙКИ МЕНЮ")
+
+--========================================================--
+-- SPEED INPUT
+--========================================================--
+
 local SpeedSettingsInput = Instance.new("TextBox")
+
 SpeedSettingsInput.Parent = SpeedSettingsList
-SpeedSettingsInput.Size = UDim2.new(1, -10, 0, 30)
-SpeedSettingsInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+SpeedSettingsInput.Size = UDim2.new(1, -4, 0, 45)
+SpeedSettingsInput.BackgroundColor3 = C().Input
+SpeedSettingsInput.BorderSizePixel = 0
 SpeedSettingsInput.Text = "16"
-SpeedSettingsInput.TextColor3 = Color3.fromRGB(0, 0, 0)
-SpeedSettingsInput.Font = Enum.Font.Gotham
+SpeedSettingsInput.PlaceholderText = "Введите скорость..."
+SpeedSettingsInput.PlaceholderColor3 = C().SubText
+SpeedSettingsInput.TextColor3 = C().Text
+SpeedSettingsInput.Font = Enum.Font.GothamMedium
 SpeedSettingsInput.TextSize = 14
-SpeedSettingsInput.ZIndex = 6
+SpeedSettingsInput.ClearTextOnFocus = false
+SpeedSettingsInput.ZIndex = 70
+
+addCorner(SpeedSettingsInput, 10)
+addStroke(SpeedSettingsInput, C().Stroke, 1, 0.15)
+
+local SpeedInfo = createLabel(
+    SpeedSettingsList,
+    "Рекомендуемое значение: 16–100",
+    UDim2.new(1, -4, 0, 20),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.Gotham,
+    10
+)
+
+SpeedInfo.TextColor3 = C().SubText
+
+--========================================================--
+-- AUTO SPEED
+--========================================================--
 
 local AutoSpeedMaintainButton = Instance.new("TextButton")
+
 AutoSpeedMaintainButton.Parent = SpeedSettingsList
-AutoSpeedMaintainButton.Size = UDim2.new(1, -10, 0, 30)
-AutoSpeedMaintainButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-AutoSpeedMaintainButton.Text = "Auto Maintain Speed: OFF"
-AutoSpeedMaintainButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-AutoSpeedMaintainButton.Font = Enum.Font.Gotham
-AutoSpeedMaintainButton.TextSize = 14
-AutoSpeedMaintainButton.ZIndex = 6
+AutoSpeedMaintainButton.Size = UDim2.new(1, -4, 0, 43)
+AutoSpeedMaintainButton.BackgroundColor3 = C().Surface
+AutoSpeedMaintainButton.BorderSizePixel = 0
+AutoSpeedMaintainButton.Text =
+    "Автоматически сохранять скорость       ВЫКЛ"
+AutoSpeedMaintainButton.TextColor3 = C().Text
+AutoSpeedMaintainButton.Font = Enum.Font.GothamMedium
+AutoSpeedMaintainButton.TextSize = 12
+AutoSpeedMaintainButton.AutoButtonColor = false
+AutoSpeedMaintainButton.ZIndex = 70
 
-SpeedSettingsList.CanvasSize = UDim2.new(0, 0, 0, 2 * 35)
+addCorner(AutoSpeedMaintainButton, 10)
+addStroke(AutoSpeedMaintainButton, C().Stroke, 1, 0.15)
 
--- Панель настроек меню
-local MenuSettingsPanel = Instance.new("Frame")
-MenuSettingsPanel.Parent = ScreenGui
-MenuSettingsPanel.Size = UDim2.new(0, 400, 0, 300)
-MenuSettingsPanel.Position = UDim2.new(0.5, -200, 0.5, -150)
-MenuSettingsPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MenuSettingsPanel.BorderSizePixel = 0
-MenuSettingsPanel.Visible = false
-MenuSettingsPanel.ClipsDescendants = true
-MenuSettingsPanel.ZIndex = 4
-MenuSettingsPanel.Active = true
-MenuSettingsPanel.BackgroundTransparency = 1
+--========================================================--
+-- MENU SETTINGS
+--========================================================--
 
-local MenuSettingsUICorner = Instance.new("UICorner")
-MenuSettingsUICorner.CornerRadius = UDim.new(0, 10)
-MenuSettingsUICorner.Parent = MenuSettingsPanel
-
--- Создаем шторку (MenuSettingsHeaderFrame) для MenuSettingsPanel
-local MenuSettingsHeaderFrame = Instance.new("Frame")
-MenuSettingsHeaderFrame.Parent = MenuSettingsPanel
 local OutOfBoundsButton = Instance.new("TextButton")
-OutOfBoundsButton.Parent = MenuSettingsPanel
-OutOfBoundsButton.Size = UDim2.new(0, 180, 0, 30)
-OutOfBoundsButton.Position = UDim2.new(0, 10, 0, 60)
-OutOfBoundsButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-OutOfBoundsButton.Text = "Out of bounds: OFF"
-OutOfBoundsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-OutOfBoundsButton.Font = Enum.Font.Gotham
-OutOfBoundsButton.TextSize = 14
-OutOfBoundsButton.ZIndex = 6
+
+OutOfBoundsButton.Parent = MenuSettingsList
+OutOfBoundsButton.Size = UDim2.new(1, -4, 0, 42)
+OutOfBoundsButton.BackgroundColor3 = C().Surface
+OutOfBoundsButton.BorderSizePixel = 0
+OutOfBoundsButton.Text =
+    "Перемещение за границы экрана       ВЫКЛ"
+OutOfBoundsButton.TextColor3 = C().Text
+OutOfBoundsButton.Font = Enum.Font.GothamMedium
+OutOfBoundsButton.TextSize = 12
 OutOfBoundsButton.AutoButtonColor = false
+OutOfBoundsButton.ZIndex = 70
 
--- ✨ СКРУГЛЕНИЕ (как у тебя в applyButtonStyle)
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = OutOfBoundsButton
+addCorner(OutOfBoundsButton, 10)
+addStroke(OutOfBoundsButton, C().Stroke, 1, 0.15)
 
--- ✨ ОБВОДКА
-local stroke = Instance.new("UIStroke")
-stroke.Thickness = 2
-stroke.Color = Color3.fromRGB(0, 0, 0)
-stroke.Transparency = 0.5
-stroke.Parent = OutOfBoundsButton
-
--- ✨ ГРАДИЕНТ (как у остальных кнопок)
-local gradient = Instance.new("UIGradient")
-gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 100)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 150, 255))
-})
-gradient.Rotation = 45
-gradient.Parent = OutOfBoundsButton
-MenuSettingsHeaderFrame.Size = UDim2.new(1, 0, 0, 30)
-MenuSettingsHeaderFrame.Position = UDim2.new(0, 0, 0, 0)
-MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-MenuSettingsHeaderFrame.BorderSizePixel = 0
-MenuSettingsHeaderFrame.ZIndex = 5
-MenuSettingsHeaderFrame.ClipsDescendants = true
-
--- Скругленные углы для шторки
-local MenuSettingsHeaderUICorner = Instance.new("UICorner")
-MenuSettingsHeaderUICorner.CornerRadius = UDim.new(0, 8)
-MenuSettingsHeaderUICorner.Parent = MenuSettingsHeaderFrame
-
--- Градиент для шторки
-local MenuSettingsHeaderGradient = Instance.new("UIGradient")
-MenuSettingsHeaderGradient.Color = ColorSequence.new({
-ColorSequenceKeypoint.new(0, Color3.fromRGB(70, 70, 70)),
-ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 100, 100))
-})
-MenuSettingsHeaderGradient.Rotation = 45
-MenuSettingsHeaderGradient.Parent = MenuSettingsHeaderFrame
-
--- Текст в шторке
-local MenuSettingsHeaderLabel = Instance.new("TextLabel")
-MenuSettingsHeaderLabel.Parent = MenuSettingsHeaderFrame
-MenuSettingsHeaderLabel.Size = UDim2.new(0.5, -10, 1, 0)
-MenuSettingsHeaderLabel.Position = UDim2.new(0, 10, 0, 0)
-MenuSettingsHeaderLabel.BackgroundTransparency = 1
-MenuSettingsHeaderLabel.Text = "Menu Settings"
-MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-MenuSettingsHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
-MenuSettingsHeaderLabel.TextYAlignment = Enum.TextYAlignment.Center
-MenuSettingsHeaderLabel.Font = Enum.Font.GothamBold
-MenuSettingsHeaderLabel.TextSize = 14
-MenuSettingsHeaderLabel.ZIndex = 5
-
--- Кнопка "Назад" для MenuSettingsPanel (перемещена внутрь шторки)
-local MenuSettingsCloseButton = Instance.new("TextButton")
-MenuSettingsCloseButton.Parent = MenuSettingsHeaderFrame
-MenuSettingsCloseButton.Text = "←"
-MenuSettingsCloseButton.Size = UDim2.new(0, 20, 0, 20)
-MenuSettingsCloseButton.Position = UDim2.new(1, -25, 0, 5)
-MenuSettingsCloseButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-MenuSettingsCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MenuSettingsCloseButton.Font = Enum.Font.SourceSansBold
-MenuSettingsCloseButton.TextSize = 14
-MenuSettingsCloseButton.ZIndex = 5
-
--- Скругленные углы и градиент для кнопок
-local function applyButtonStyle(button)
-local success, result = pcall(function()
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = button
-local gradient = Instance.new("UIGradient")
-gradient.Color = ColorSequence.new({
-ColorSequenceKeypoint.new(0, button.BackgroundColor3),
-ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 150, 255))
-})
-gradient.Rotation = 45
-gradient.Parent = button
-local shadow = Instance.new("UIStroke")
-shadow.Thickness = 2
-shadow.Color = Color3.fromRGB(0, 0, 0)
-shadow.Transparency = 0.5
-shadow.Parent = button
-end)
-if success then
-print("Стиль применён к кнопке: " .. (button.Text or "TextBox"))
-else
-warn("Ошибка при применении стиля к кнопке: " .. tostring(result))
-end
-end
-
-applyButtonStyle(ActivateButton)
-applyButtonStyle(WallHackButton)
-applyButtonStyle(SpeedHackButton)
-applyButtonStyle(SpeedSettingsButton)
-applyButtonStyle(SpeedSettingsInput)
-applyButtonStyle(AutoSpeedMaintainButton)
-applyButtonStyle(ThemeButton)
-applyButtonStyle(CloseButton)
-applyButtonStyle(MinimizeButton)
-applyButtonStyle(NoclipButton)
-applyButtonStyle(TeleportButton)
-applyButtonStyle(InfiniteJumpButton)
-applyButtonStyle(TeleportCloseButton)
-applyButtonStyle(SpeedSettingsCloseButton)
-applyButtonStyle(MenuSettingsButton)
-applyButtonStyle(MenuSettingsCloseButton)
-
--- Визуальная обратная связь для кнопок
-local function setupButtonFeedback(button)
-if not button then return end
-local success, result = pcall(function()
-local originalColor = button.BackgroundColor3
-local hoverColor = Color3.new(
-math.min(originalColor.R + 0.1, 1),
-math.min(originalColor.G + 0.1, 1),
-math.min(originalColor.B + 0.1, 1)
+local OutOfBoundsDescription = createLabel(
+    MenuSettingsList,
+    "Позволяет перетаскивать меню за пределы экрана.",
+    UDim2.new(1, -4, 0, 27),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.Gotham,
+    10
 )
-local pressColor = Color3.new(
-math.max(originalColor.R - 0.2, 0),
-math.max(originalColor.G - 0.2, 0),
-math.max(originalColor.B - 0.2, 0)
+
+OutOfBoundsDescription.TextColor3 = C().SubText
+OutOfBoundsDescription.TextWrapped = true
+OutOfBoundsDescription.TextYAlignment = Enum.TextYAlignment.Top
+OutOfBoundsDescription.ZIndex = 70
+
+local TransparencyTitle = createLabel(
+    MenuSettingsList,
+    "Прозрачность при перетаскивании",
+    UDim2.new(1, -55, 0, 25),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.GothamMedium,
+    13
 )
-button.MouseEnter:Connect(function()
-button.BackgroundColor3 = hoverColor
-end)
-button.MouseLeave:Connect(function()
-button.BackgroundColor3 = originalColor
-end)
-button.MouseButton1Down:Connect(function()
-button.BackgroundColor3 = pressColor
-end)
-button.MouseButton1Up:Connect(function()
-button.BackgroundColor3 = hoverColor
-end)
-button.MouseButton1Click:Connect(function()
-wait()
-button.BackgroundColor3 = originalColor
-end)
-end)
-if not success then
-warn("Ошибка настройки обратной связи для кнопки: " .. tostring(result))
-end
+
+TransparencyTitle.TextColor3 = C().Text
+TransparencyTitle.ZIndex = 70
+
+local TransparencyValue = createLabel(
+    MenuSettingsList,
+    "45%",
+    UDim2.fromOffset(50, 25),
+    UDim2.new(1, -50, 0, 0),
+    Enum.Font.GothamBold,
+    12
+)
+
+TransparencyValue.TextColor3 = C().Accent
+TransparencyValue.TextXAlignment = Enum.TextXAlignment.Right
+TransparencyValue.ZIndex = 70
+
+local TransparencySlider = Instance.new("Frame")
+
+TransparencySlider.Parent = MenuSettingsList
+TransparencySlider.Size = UDim2.new(1, -4, 0, 38)
+TransparencySlider.BackgroundColor3 = C().Surface
+TransparencySlider.BorderSizePixel = 0
+TransparencySlider.ZIndex = 70
+
+addCorner(TransparencySlider, 10)
+
+local TransparencySliderStroke = addStroke(
+    TransparencySlider,
+    C().Stroke,
+    1,
+    0.15
+)
+
+local SliderTrack = Instance.new("Frame")
+
+SliderTrack.Parent = TransparencySlider
+SliderTrack.Size = UDim2.new(1, -32, 0, 6)
+SliderTrack.Position = UDim2.new(0, 16, 0.5, -3)
+SliderTrack.BackgroundColor3 = C().Surface2
+SliderTrack.BorderSizePixel = 0
+SliderTrack.ZIndex = 71
+
+addCorner(SliderTrack, 3)
+
+local SliderFill = Instance.new("Frame")
+
+SliderFill.Parent = SliderTrack
+SliderFill.Size = UDim2.new(
+    dragTransparency / MAX_DRAG_TRANSPARENCY,
+    0,
+    1,
+    0
+)
+
+SliderFill.BackgroundColor3 = C().Accent
+SliderFill.BorderSizePixel = 0
+SliderFill.ZIndex = 72
+
+addCorner(SliderFill, 3)
+
+local SliderKnob = Instance.new("TextButton")
+
+SliderKnob.Parent = SliderTrack
+SliderKnob.Size = UDim2.fromOffset(24, 24)
+SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+
+SliderKnob.Position = UDim2.new(
+    dragTransparency / MAX_DRAG_TRANSPARENCY,
+    0,
+    0.5,
+    0
+)
+
+SliderKnob.BackgroundColor3 = C().Accent
+SliderKnob.BorderSizePixel = 0
+SliderKnob.Text = ""
+SliderKnob.AutoButtonColor = false
+SliderKnob.Active = true
+SliderKnob.ZIndex = 74
+
+addCorner(SliderKnob, 12)
+
+local TransparencyDescription = createLabel(
+    MenuSettingsList,
+    "Чем выше значение — тем прозрачнее меню во время перетаскивания.",
+    UDim2.new(1, -4, 0, 27),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.Gotham,
+    10
+)
+
+TransparencyDescription.TextColor3 = C().SubText
+TransparencyDescription.TextWrapped = true
+TransparencyDescription.TextYAlignment = Enum.TextYAlignment.Top
+TransparencyDescription.ZIndex = 70
+
+--========================================================--
+-- SLIDER
+--========================================================--
+
+local sliderDragging = false
+
+local function updateTransparencySlider(inputX)
+    local absolutePosition = SliderTrack.AbsolutePosition
+    local absoluteSize = SliderTrack.AbsoluteSize
+
+    local percent = math.clamp(
+        (inputX - absolutePosition.X) / absoluteSize.X,
+        0,
+        1
+    )
+
+    dragTransparency =
+        percent * MAX_DRAG_TRANSPARENCY
+
+    SliderFill.Size = UDim2.new(
+        percent,
+        0,
+        1,
+        0
+    )
+
+    SliderKnob.Position = UDim2.new(
+        percent,
+        0,
+        0.5,
+        0
+    )
+
+    TransparencyValue.Text =
+        tostring(
+            math.floor(
+                dragTransparency * 100 + 0.5
+            )
+        ) .. "%"
+
+    if isDraggingMenu then
+        for _, data in ipairs(dragTransparencyObjects) do
+            local object = data.Object
+
+            if object
+                and object.Parent
+                and object ~= HeaderFrame
+                and not object:IsDescendantOf(HeaderFrame)
+            then
+                object.BackgroundTransparency =
+                    dragTransparency
+            end
+        end
+    end
 end
 
-local buttons = {
-ActivateButton, WallHackButton, SpeedHackButton, SpeedSettingsButton,
-NoclipButton, ThemeButton, CloseButton, MinimizeButton, TeleportButton,
-InfiniteJumpButton, TeleportCloseButton, SpeedSettingsCloseButton,
-AutoSpeedMaintainButton, MenuSettingsButton, MenuSettingsCloseButton
-}
-for _, button in ipairs(buttons) do
-setupButtonFeedback(button)
-end
-
--- Уведомления
-local activeNotifications = {}
-local function showNotification(message, color)
-local success, result = pcall(function()
-if #activeNotifications >= 5 then
-local oldest = table.remove(activeNotifications, 1)
-if oldest then
-oldest:Destroy()
-end
-end
-local notification = Instance.new("TextLabel")
-notification.Parent = ScreenGui
-notification.Size = UDim2.new(0, 200, 0, 50)
-notification.Position = UDim2.new(0.5, -100, 0, 10)
-notification.BackgroundColor3 = color or Color3.fromRGB(50, 50, 50)
-notification.Text = message
-notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-notification.TextScaled = true
-notification.ZIndex = 10
-local corner = UICorner:Clone()
-corner.Parent = notification
-local tween = TweenService:Create(notification, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-Position = UDim2.new(0.5, -100, 0, -50),
-BackgroundTransparency = 1,
-TextTransparency = 1
-})
-tween:Play()
-table.insert(activeNotifications, notification)
-tween.Completed:Connect(function()
-local index = table.find(activeNotifications, notification)
-if index then
-table.remove(activeNotifications, index)
-end
-notification:Destroy()
-end)
-end)
-if success then
-print("Уведомление показано: " .. message)
-else
-warn("Ошибка уведомления: " .. tostring(result))
-end
-end
-showNotification("Скрипт загружен!", Color3.fromRGB(0, 255, 0))
-
--- Функция применения темы
-local playerButtons = {}
-local function applyTheme()
-local success, result = pcall(function()
-if isDarkTheme then
-MenuFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-HeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-MenuSettingsPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-MinimizedContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-HeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-ActivateButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-WallHackButton.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
-SpeedHackButton.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
-SpeedSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-MenuSettingsButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-TeleportButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
-TeleportPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-TeleportHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-SpeedSettingsPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-SpeedSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-for _, button in pairs(playerButtons) do
-if button then
-button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-end
-end
-else
-MenuFrame.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-HeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-MenuSettingsPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-MenuSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-MinimizedContentLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-HeaderLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-MenuSettingsHeaderLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-ActivateButton.BackgroundColor3 = Color3.fromRGB(150, 150, 255)
-WallHackButton.BackgroundColor3 = Color3.fromRGB(180, 100, 180)
-SpeedHackButton.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
-SpeedSettingsButton.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-MenuSettingsButton.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-NoclipButton.BackgroundColor3 = Color3.fromRGB(255, 200, 100)
-TeleportButton.BackgroundColor3 = Color3.fromRGB(100, 255, 255)
-InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(100, 255, 255)
-TeleportPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-TeleportHeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-SpeedSettingsPanel.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-SpeedSettingsHeaderFrame.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-for _, button in pairs(playerButtons) do
-if button then
-button.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-end
-end
-end
-end)
-if success then
-print("Тема применена: " .. (isDarkTheme and "Тёмная" or "Светлая"))
-else
-warn("Ошибка применения темы: " .. tostring(result))
-end
-end
-
-ThemeButton.MouseButton1Click:Connect(function()
-isDarkTheme = not isDarkTheme
-applyTheme()
-showNotification(isDarkTheme and "Тёмная тема включена" or "Светлая тема включена", Color3.fromRGB(0, 255, 0))
-end)
-
-OutOfBoundsButton.MouseButton1Click:Connect(function()
-    allowOutOfBounds = not allowOutOfBounds
-
-    if allowOutOfBounds then
-        OutOfBoundsButton.Text = "Out of bounds: ON"
-
-        gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 200, 0)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 120, 0))
-        })
-    else
-        OutOfBoundsButton.Text = "Out of bounds: OFF"
-
-        gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 100)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 150, 255))
-        })
+SliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+        sliderDragging = true
+        updateTransparencySlider(input.Position.X)
     end
 end)
-applyTheme()
 
--- Анимация появления и закрытия
-local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-local function animateMenuAppearance()
-local success, result = pcall(function()
-MenuFrame.Size = UDim2.new(0, 0, 0, 0)
-local tween = TweenService:Create(MenuFrame, tweenInfo, {
-BackgroundTransparency = 0,
-Size = UDim2.new(0, 400, 0, 300)
-})
-tween:Play()
-HeaderFrame.Position = UDim2.new(0, 0, 0, -30)
-local headerTween = TweenService:Create(HeaderFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 0, 0, 0)})
-headerTween:Play()
+TransparencySlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+        sliderDragging = true
+        updateTransparencySlider(input.Position.X)
+    end
 end)
-if success then
-print("Анимация меню выполнена")
-else
-warn("Ошибка анимации меню: " .. tostring(result))
-end
-end
-animateMenuAppearance()
 
-local function animateTeleportPanelAppearance()
-local success, result = pcall(function()
-TeleportPanel.Size = UDim2.new(0, 0, 0, 0)
-TeleportPanel.BackgroundTransparency = 1
-TeleportPanel.Visible = true
-local tween = TweenService:Create(TeleportPanel, tweenInfo, {
-BackgroundTransparency = 0,
-Size = UDim2.new(0, 200, 0, 300)
-})
-tween:Play()
-end)
-if success then
-print("Анимация появления TeleportPanel выполнена")
-else
-warn("Ошибка анимации TeleportPanel: " .. tostring(result))
-end
-end
+--========================================================--
+-- BUTTON FEEDBACK
+--========================================================--
 
-local function animateTeleportPanelDisappearance(callback)
-local success, result = pcall(function()
-local tween = TweenService:Create(TeleportPanel, tweenInfo, {
-BackgroundTransparency = 1,
-Size = UDim2.new(0, 0, 0, 0)
-})
-tween:Play()
-tween.Completed:Connect(function()
-TeleportPanel.Visible = false
-if callback then callback() end
-end)
-end)
-if success then
-print("Анимация закрытия TeleportPanel выполнена")
-else
-warn("Ошибка анимации закрытия TeleportPanel: " .. tostring(result))
-end
+local function setupButtonFeedback(button)
+    if not button then
+        return
+    end
+
+    button.MouseEnter:Connect(function()
+        if button.Parent then
+            tween(button, FAST_TWEEN, {
+                BackgroundColor3 = C().SurfaceHover
+            }):Play()
+        end
+    end)
+
+    button.MouseLeave:Connect(function()
+        if button.Parent then
+            tween(button, FAST_TWEEN, {
+                BackgroundColor3 = C().Surface
+            }):Play()
+        end
+    end)
 end
 
-local function animateSpeedSettingsPanelAppearance()
-local success, result = pcall(function()
-SpeedSettingsPanel.Size = UDim2.new(0, 0, 0, 0)
-SpeedSettingsPanel.BackgroundTransparency = 1
-SpeedSettingsPanel.Visible = true
-local tween = TweenService:Create(SpeedSettingsPanel, tweenInfo, {
-BackgroundTransparency = 0,
-Size = UDim2.new(0, 200, 0, 300)
-})
-tween:Play()
-end)
-if success then
-print("Анимация появления SpeedSettingsPanel выполнена")
-else
-warn("Ошибка анимации SpeedSettingsPanel: " .. tostring(result))
-end
+for _, button in ipairs({
+    ActivateButton,
+    WallHackButton,
+    SpeedHackButton,
+    NoclipButton,
+    InfiniteJumpButton,
+    TeleportButton,
+
+    SpeedSettingsButton,
+    WallHackSettingsButton,
+
+    AutoSpeedMaintainButton,
+    OutOfBoundsButton,
+
+    ThemeButton,
+    MinimizeButton,
+    CloseButton,
+    MenuSettingsButton,
+
+    TeleportCloseButton,
+    SpeedSettingsCloseButton,
+    WallHackSettingsCloseButton,
+    MenuSettingsCloseButton
+}) do
+    setupButtonFeedback(button)
 end
 
-local function animateSpeedSettingsPanelDisappearance(callback)
-local success, result = pcall(function()
-local tween = TweenService:Create(SpeedSettingsPanel, tweenInfo, {
-BackgroundTransparency = 1,
-Size = UDim2.new(0, 0, 0, 0)
-})
-tween:Play()
-tween.Completed:Connect(function()
-SpeedSettingsPanel.Visible = false
-if callback then callback() end
-end)
-end)
-if success then
-print("Анимация закрытия SpeedSettingsPanel выполнена")
-else
-warn("Ошибка анимации закрытия SpeedSettingsPanel: " .. tostring(result))
-end
+--========================================================--
+-- FEATURE STATE
+--========================================================--
+
+local isSpeedHackEnabled = false
+local isWallHackEnabled = false
+local isNoclipEnabled = false
+local isInfiniteJumpEnabled = false
+
+local function setFeatureState(button, enabled)
+    local data = featureData[button]
+
+    if not data then
+        return
+    end
+
+    local iconLabel =
+        data.Icon:FindFirstChildOfClass("TextLabel")
+
+    if enabled then
+        data.Status.Text = "●  ON"
+        data.Status.TextColor3 = C().Green
+
+        data.Icon.BackgroundColor3 =
+            Color3.fromRGB(30, 65, 50)
+
+        if iconLabel then
+            iconLabel.TextColor3 = C().Green
+        end
+    else
+        data.Status.Text = "●  OFF"
+        data.Status.TextColor3 = C().SubText
+
+        data.Icon.BackgroundColor3 =
+            C().Surface2
+
+        if iconLabel then
+            iconLabel.TextColor3 = C().Accent
+        end
+    end
 end
 
-local function animateMenuSettingsPanelAppearance()
-local success, result = pcall(function()
-MenuSettingsPanel.Size = UDim2.new(0, 0, 0, 0)
-MenuSettingsPanel.BackgroundTransparency = 1
-MenuSettingsPanel.Visible = true
-local tween = TweenService:Create(MenuSettingsPanel, tweenInfo, {
-BackgroundTransparency = 0,
-Size = UDim2.new(0, 400, 0, 300)
-})
-tween:Play()
--- Анимация шторки
-MenuSettingsHeaderFrame.Position = UDim2.new(0, 0, 0, -30)
-local headerTween = TweenService:Create(MenuSettingsHeaderFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 0, 0, 0)})
-headerTween:Play()
-end)
-if success then
-print("Анимация появления MenuSettingsPanel выполнена")
-else
-warn("Ошибка анимации MenuSettingsPanel: " .. tostring(result))
-end
+--========================================================--
+-- DRAG TRANSPARENCY
+--========================================================--
+
+local function isInsideHeader(object, rootFrame)
+    if not object or not rootFrame then
+        return false
+    end
+
+    if rootFrame == MenuFrame then
+        if object == HeaderFrame then
+            return true
+        end
+
+        if object:IsDescendantOf(HeaderFrame) then
+            return true
+        end
+    else
+        local header = panelHeaders[rootFrame]
+
+        if header then
+            if object == header then
+                return true
+            end
+
+            if object:IsDescendantOf(header) then
+                return true
+            end
+        end
+    end
+
+    return false
 end
 
-local function animateMenuSettingsPanelDisappearance(callback)
-local success, result = pcall(function()
-local tween = TweenService:Create(MenuSettingsPanel, tweenInfo, {
-BackgroundTransparency = 1,
-Size = UDim2.new(0, 0, 0, 0)
-})
-tween:Play()
-tween.Completed:Connect(function()
-MenuSettingsPanel.Visible = false
-if callback then callback() end
-end)
-end)
-if success then
-print("Анимация закрытия MenuSettingsPanel выполнена")
-else
-warn("Ошибка анимации закрытия MenuSettingsPanel: " .. tostring(result))
-end
+local function collectDragTransparencyObjects(rootFrame)
+    table.clear(dragTransparencyObjects)
+
+    if not rootFrame then
+        return
+    end
+
+    local function addObject(object)
+        if not object:IsA("GuiObject") then
+            return
+        end
+
+        if isInsideHeader(object, rootFrame) then
+            return
+        end
+
+        if object.BackgroundTransparency >= 1 then
+            return
+        end
+
+        table.insert(
+            dragTransparencyObjects,
+            {
+                Object = object,
+                OriginalTransparency =
+                    object.BackgroundTransparency
+            }
+        )
+    end
+
+    addObject(rootFrame)
+
+    for _, object in ipairs(rootFrame:GetDescendants()) do
+        addObject(object)
+    end
 end
 
--- Перетаскивание основного меню и панелей
-local dragging = false
-local startPos = nil
-local startMousePos = nil
-local draggedFrame = nil
+local function setDragTransparency(rootFrame, enabled)
+    if not rootFrame then
+        return
+    end
 
-local function isTouchingButton(touchPos, frame)
-local buttons = (frame == MenuFrame) and
-{CloseButton, MinimizeButton, ThemeButton, MenuSettingsButton, ActivateButton, WallHackButton, SpeedHackButton, SpeedSettingsButton, NoclipButton, TeleportButton, InfiniteJumpButton} or
-(frame == TeleportPanel) and {TeleportCloseButton} or
-(frame == SpeedSettingsPanel) and {SpeedSettingsCloseButton, SpeedSettingsInput, AutoSpeedMaintainButton} or
-(frame == MenuSettingsPanel) and {MenuSettingsCloseButton} or
-{}
-for _, button in ipairs(buttons) do
-if not button then continue end
-local buttonPos = button.AbsolutePosition
-local buttonSize = button.AbsoluteSize
-if touchPos.X >= buttonPos.X and touchPos.X <= buttonPos.X + buttonSize.X and
-touchPos.Y >= buttonPos.Y and touchPos.Y <= buttonPos.Y + buttonSize.Y then
-return true
-end
-end
-return false
+    if enabled then
+        collectDragTransparencyObjects(rootFrame)
+
+        for _, data in ipairs(dragTransparencyObjects) do
+            local object = data.Object
+
+            if object
+                and object.Parent
+                and not isInsideHeader(object, rootFrame)
+            then
+                object.BackgroundTransparency =
+                    math.clamp(
+                        dragTransparency,
+                        MIN_DRAG_TRANSPARENCY,
+                        MAX_DRAG_TRANSPARENCY
+                    )
+            end
+        end
+
+        isDraggingMenu = true
+    else
+        for _, data in ipairs(dragTransparencyObjects) do
+            local object = data.Object
+
+            if object and object.Parent then
+                object.BackgroundTransparency =
+                    data.OriginalTransparency
+            end
+        end
+
+        table.clear(dragTransparencyObjects)
+
+        isDraggingMenu = false
+    end
 end
 
-local function isMouseOverFrame(mousePos, frame)
-if not frame or not frame.Visible then return false end
-local framePos = frame.AbsolutePosition
-local frameSize = frame.AbsoluteSize
-return mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
-mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y
-end
+--========================================================--
+-- DRAGGING
+--========================================================--
 
-local function clampPosition(position, frameSize)
+local dragData = {
+    active = false,
+    frame = nil,
+    startMouse = nil,
+    startPosition = nil
+}
+
+local function clampPosition(frame, position)
     if allowOutOfBounds then
         return position
     end
 
-    local screenSize = ScreenGui.AbsoluteSize
+    local viewport = ScreenGui.AbsoluteSize
+    local size = frame.AbsoluteSize
 
-    local minX = 0
-    local maxX = screenSize.X - frameSize.X
+    local x = math.clamp(
+        position.X.Offset,
+        0,
+        math.max(0, viewport.X - size.X)
+    )
 
-    local minY = 0
-    local maxY = screenSize.Y - frameSize.Y
+    local y = math.clamp(
+        position.Y.Offset,
+        0,
+        math.max(0, viewport.Y - size.Y)
+    )
 
-    local x = math.clamp(position.X.Offset, minX, maxX)
-    local y = math.clamp(position.Y.Offset, minY, maxY)
-
-    return UDim2.new(0, x, 0, y)
-end
-
-local function startDragging(input)
-if not dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
-local mousePos = input.Position
-local frame = nil
-if isMouseOverFrame(mousePos, MenuSettingsPanel) and not isTouchingButton(mousePos, MenuSettingsPanel) then
-frame = MenuSettingsPanel
-elseif isMouseOverFrame(mousePos, SpeedSettingsPanel) and not isTouchingButton(mousePos, SpeedSettingsPanel) then
-frame = SpeedSettingsPanel
-elseif isMouseOverFrame(mousePos, TeleportPanel) and not isTouchingButton(mousePos, TeleportPanel) then
-frame = TeleportPanel
-elseif isMouseOverFrame(mousePos, HeaderFrame) and not isTouchingButton(mousePos, MenuFrame) then
-frame = MenuFrame
-elseif isMouseOverFrame(mousePos, MenuFrame) and not isTouchingButton(mousePos, MenuFrame) then
-frame = MenuFrame
-elseif isMouseOverFrame(mousePos, MenuFrame) and ExpandButton.Visible then
-frame = MenuFrame
-end
-if frame then
-dragging = true
-draggedFrame = frame
-startPos = frame.Position
-startMousePos = input.Position
-frame.BackgroundTransparency = 0.2
-print("Начато перетаскивание: " .. frame.Name)
-end
-end
+    return UDim2.fromOffset(x, y)
 end
 
-local lastUpdate = 0
-local function updateDragging(input)
-if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-local now = tick()
-if now - lastUpdate < 0.016 then return end
-lastUpdate = now
-local delta = input.Position - startMousePos
-local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-draggedFrame.Position = clampPosition(newPos, draggedFrame.AbsoluteSize)
-end
+local function beginDrag(frame, input)
+    if dragData.active then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1
+        and input.UserInputType ~= Enum.UserInputType.Touch
+    then
+        return
+    end
+
+    dragData.active = true
+    dragData.frame = frame
+    dragData.startMouse = input.Position
+
+    local absolutePosition = frame.AbsolutePosition
+
+    dragData.startPosition =
+        UDim2.fromOffset(
+            absolutePosition.X,
+            absolutePosition.Y
+        )
+
+    setDragTransparency(frame, true)
 end
 
-local function endDragging(input)
-if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-if dragging then
-dragging = false
-if draggedFrame then
-draggedFrame.BackgroundTransparency = 0
-if draggedFrame == MenuFrame then
-savePosition()
-end
-print("Перетаскивание завершено: " .. draggedFrame.Name)
-draggedFrame = nil
-end
-end
-end
+local function updateDrag(input)
+    if not dragData.active then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch
+    then
+        return
+    end
+
+    if not dragData.frame then
+        return
+    end
+
+    local delta =
+        input.Position - dragData.startMouse
+
+    local newPosition =
+        UDim2.fromOffset(
+            dragData.startPosition.X.Offset + delta.X,
+            dragData.startPosition.Y.Offset + delta.Y
+        )
+
+    dragData.frame.Position =
+        clampPosition(
+            dragData.frame,
+            newPosition
+        )
 end
 
-HeaderFrame.InputBegan:Connect(startDragging)
-HeaderFrame.InputChanged:Connect(updateDragging)
-HeaderFrame.InputEnded:Connect(endDragging)
-MenuFrame.InputBegan:Connect(startDragging)
-MenuFrame.InputChanged:Connect(updateDragging)
-MenuFrame.InputEnded:Connect(endDragging)
-ExpandButton.InputBegan:Connect(startDragging)
-ExpandButton.InputChanged:Connect(updateDragging)
-ExpandButton.InputEnded:Connect(endDragging)
-TeleportPanel.InputBegan:Connect(startDragging)
-TeleportPanel.InputChanged:Connect(updateDragging)
-TeleportPanel.InputEnded:Connect(endDragging)
-SpeedSettingsPanel.InputBegan:Connect(startDragging)
-SpeedSettingsPanel.InputChanged:Connect(updateDragging)
-SpeedSettingsPanel.InputEnded:Connect(endDragging)
-MenuSettingsPanel.InputBegan:Connect(startDragging)
-MenuSettingsPanel.InputChanged:Connect(updateDragging)
-MenuSettingsPanel.InputEnded:Connect(endDragging)
-MenuSettingsHeaderFrame.InputBegan:Connect(startDragging) -- Добавляем перетаскивание через шторку
-MenuSettingsHeaderFrame.InputChanged:Connect(updateDragging)
-MenuSettingsHeaderFrame.InputEnded:Connect(endDragging)
+local function endDrag()
+    if dragData.frame then
+        setDragTransparency(
+            dragData.frame,
+            false
+        )
+    end
 
--- Сохранение и загрузка позиции меню
-local function savePosition()
-local success, result = pcall(function()
-local pos = MenuFrame.Position
-local posValue = ReplicatedStorage:FindFirstChild("MenuPosition") or Instance.new("Vector3Value")
-posValue.Name = "MenuPosition"
-posValue.Parent = ReplicatedStorage
-posValue.Value = Vector3.new(pos.X.Offset, pos.Y.Offset, 0)
+    dragData.active = false
+    dragData.frame = nil
+    dragData.startMouse = nil
+    dragData.startPosition = nil
+end
+
+--========================================================--
+-- DRAG CONNECTIONS
+--========================================================--
+
+HeaderFrame.InputBegan:Connect(function(input)
+    beginDrag(MenuFrame, input)
 end)
-if success then
-print("Позиция сохранена")
-else
-warn("Ошибка сохранения позиции: " .. tostring(result))
-end
+
+MenuSettingsHeaderFrame.InputBegan:Connect(function(input)
+    beginDrag(MenuSettingsPanel, input)
+end)
+
+SpeedSettingsHeaderFrame.InputBegan:Connect(function(input)
+    beginDrag(SpeedSettingsPanel, input)
+end)
+
+WallHackSettingsHeaderFrame.InputBegan:Connect(function(input)
+    beginDrag(WallHackSettingsPanel, input)
+end)
+
+TeleportHeaderFrame.InputBegan:Connect(function(input)
+    beginDrag(TeleportPanel, input)
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if sliderDragging then
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        then
+            updateTransparencySlider(input.Position.X)
+        end
+    end
+
+    updateDrag(input)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+
+        sliderDragging = false
+
+        if dragData.active then
+            endDrag()
+        end
+    end
+end)
+
+--========================================================--
+-- POSITION
+--========================================================--
+
+local savedPosition
+
+local function savePosition()
+    savedPosition = MenuFrame.Position
 end
 
 local function loadPosition()
-local success, result = pcall(function()
-local posValue = ReplicatedStorage:FindFirstChild("MenuPosition")
-if posValue then
-MenuFrame.Position = UDim2.new(0, posValue.Value.X, 0, posValue.Value.Y)
+    if savedPosition then
+        MenuFrame.Position = savedPosition
+    end
 end
-end)
-if success then
-print("Позиция загружена")
-else
-warn("Ошибка загрузки позиции: " .. tostring(result))
-end
-end
+
 loadPosition()
 
--- Горячие клавиши
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-if gameProcessed then return end
-if input.KeyCode == Enum.KeyCode.H then
-MenuFrame.Visible = not MenuFrame.Visible
-print("Меню " .. (MenuFrame.Visible and "показано" or "скрыто"))
-end
-end)
+--========================================================--
+-- PANEL ANIMATIONS
+--========================================================--
 
--- Очистка событий
-local connections = {}
-local function cleanup()
-local success, result = pcall(function()
-for _, connection in ipairs(connections) do
-connection:Disconnect()
-end
-if ScreenGui then
-ScreenGui:Destroy()
-end
-if TeleportPanel then
-TeleportPanel:Destroy()
-end
-if SpeedSettingsPanel then
-SpeedSettingsPanel:Destroy()
-end
-if MenuSettingsPanel then
-MenuSettingsPanel:Destroy()
-end
-end)
-if success then
-print("Скрипт очищен")
-else
-warn("Ошибка очистки: " .. tostring(result))
-end
+local function openPanel(panel)
+    if not panel then
+        return
+    end
+
+    panel.Visible = true
+
+    local targetSize =
+        UDim2.fromOffset(
+            PANEL_WIDTH,
+            PANEL_HEIGHT
+        )
+
+    panel.Size =
+        UDim2.fromOffset(0, 0)
+
+    tween(panel, NORMAL_TWEEN, {
+        Size = targetSize
+    }):Play()
 end
 
-table.insert(connections, HeaderFrame.InputBegan:Connect(startDragging))
-table.insert(connections, HeaderFrame.InputChanged:Connect(updateDragging))
-table.insert(connections, HeaderFrame.InputEnded:Connect(endDragging))
-table.insert(connections, MenuFrame.InputBegan:Connect(startDragging))
-table.insert(connections, MenuFrame.InputChanged:Connect(updateDragging))
-table.insert(connections, MenuFrame.InputEnded:Connect(endDragging))
-table.insert(connections, ExpandButton.InputBegan:Connect(startDragging))
-table.insert(connections, ExpandButton.InputChanged:Connect(updateDragging))
-table.insert(connections, ExpandButton.InputEnded:Connect(endDragging))
-table.insert(connections, TeleportPanel.InputBegan:Connect(startDragging))
-table.insert(connections, TeleportPanel.InputChanged:Connect(updateDragging))
-table.insert(connections, TeleportPanel.InputEnded:Connect(endDragging))
-table.insert(connections, SpeedSettingsPanel.InputBegan:Connect(startDragging))
-table.insert(connections, SpeedSettingsPanel.InputChanged:Connect(updateDragging))
-table.insert(connections, SpeedSettingsPanel.InputEnded:Connect(endDragging))
-table.insert(connections, MenuSettingsPanel.InputBegan:Connect(startDragging))
-table.insert(connections, MenuSettingsPanel.InputChanged:Connect(updateDragging))
-table.insert(connections, MenuSettingsPanel.InputEnded:Connect(endDragging))
-table.insert(connections, MenuSettingsHeaderFrame.InputBegan:Connect(startDragging))
-table.insert(connections, MenuSettingsHeaderFrame.InputChanged:Connect(updateDragging))
-table.insert(connections, MenuSettingsHeaderFrame.InputEnded:Connect(endDragging))
-table.insert(connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
-if gameProcessed then return end
-if input.KeyCode == Enum.KeyCode.H then
-MenuFrame.Visible = not MenuFrame.Visible
-end
-end))
+local function closePanel(panel)
+    if not panel then
+        return
+    end
 
--- Обработчик кнопки "Закрыть"
+    local closeTween = tween(
+        panel,
+        NORMAL_TWEEN,
+        {
+            Size = UDim2.fromOffset(0, 0)
+        }
+    )
+
+    closeTween:Play()
+
+    closeTween.Completed:Connect(function()
+        if panel then
+            panel.Visible = false
+
+            panel.Size =
+                UDim2.fromOffset(
+                    PANEL_WIDTH,
+                    PANEL_HEIGHT
+                )
+        end
+    end)
+end
+
+--========================================================--
+-- CLOSE MAIN MENU
+--========================================================--
+
+local function closeMainMenu()
+    if dragData.active then
+        endDrag()
+    end
+
+    savePosition()
+
+    TeleportPanel.Visible = false
+    SpeedSettingsPanel.Visible = false
+    WallHackSettingsPanel.Visible = false
+    MenuSettingsPanel.Visible = false
+
+    local closeTween = tween(
+        MenuFrame,
+        NORMAL_TWEEN,
+        {
+            Size = UDim2.fromOffset(0, 0)
+        }
+    )
+
+    closeTween:Play()
+
+    closeTween.Completed:Connect(function()
+        if not MenuFrame then
+            return
+        end
+
+        MenuFrame.Visible = false
+
+        MenuFrame.Size =
+            UDim2.fromOffset(
+                MENU_WIDTH,
+                MENU_HEIGHT
+            )
+
+        HeaderFrame.Visible = true
+        Content.Visible = true
+        MinimizedContentLabel.Visible = false
+    end)
+
+    showNotification(
+        "Меню закрыто",
+        C().Accent
+    )
+end
+
+--========================================================--
+-- MAIN CLOSE BUTTON
+--========================================================--
+
 CloseButton.MouseButton1Click:Connect(function()
-print("Меню закрыто")
-cleanup()
+    closeMainMenu()
 end)
 
--- Обработчик кнопки "Свернуть"
-MinimizeButton.MouseButton1Click:Connect(function()
-local success, result = pcall(function()
-print("Меню сворачивается")
-MinimizedContentLabel.Visible = true
-if ActivateButton then ActivateButton.Visible = false end
-if WallHackButton then WallHackButton.Visible = false end
-if SpeedHackButton then SpeedHackButton.Visible = false end
-if SpeedSettingsButton then SpeedSettingsButton.Visible = false end
-if NoclipButton then NoclipButton.Visible = false end
-if TeleportButton then TeleportButton.Visible = false end
-if InfiniteJumpButton then InfiniteJumpButton.Visible = false end
-if HeaderFrame then HeaderFrame.Visible = false end
-if ExpandButton then ExpandButton.Visible = true end
-local tween = TweenService:Create(MenuFrame, tweenInfo, {Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = 0.3})
-tween:Play()
-end)
-if not success then
-warn("Ошибка сворачивания: " .. tostring(result))
+--========================================================--
+-- THEME
+--========================================================--
+
+local function applyTheme()
+    local t = C()
+
+    MenuFrame.BackgroundColor3 = t.Background
+    HeaderFrame.BackgroundColor3 = t.Header
+
+    HeaderLabel.TextColor3 = t.Text
+    HeaderSub.TextColor3 = t.SubText
+    SectionTitle.TextColor3 = t.SubText
+
+    HeaderBottom.BackgroundColor3 = t.Accent
+    Logo.BackgroundColor3 = t.Accent
+
+    for button, data in pairs(featureData) do
+        if button and button.Parent then
+            button.BackgroundColor3 = t.Surface
+
+            if data.Icon then
+                data.Icon.BackgroundColor3 = t.Surface2
+            end
+
+            if data.Title then
+                data.Title.TextColor3 = t.Text
+            end
+        end
+    end
+
+    SpeedSettingsButton.BackgroundColor3 = t.Surface2
+    SpeedSettingsButton.TextColor3 = t.SubText
+
+    WallHackSettingsButton.BackgroundColor3 = t.Surface2
+    WallHackSettingsButton.TextColor3 = t.SubText
+
+    SpeedSettingsInput.BackgroundColor3 = t.Input
+    SpeedSettingsInput.TextColor3 = t.Text
+
+    AutoSpeedMaintainButton.BackgroundColor3 = t.Surface
+    AutoSpeedMaintainButton.TextColor3 = t.Text
+
+    OutOfBoundsButton.BackgroundColor3 = t.Surface
+
+    OutOfBoundsDescription.TextColor3 = t.SubText
+
+    OutOfBoundsButton.TextColor3 =
+        allowOutOfBounds and t.Green or t.Text
+
+    TransparencyTitle.TextColor3 = t.Text
+    TransparencyValue.TextColor3 = t.Accent
+    TransparencyDescription.TextColor3 = t.SubText
+
+    TransparencySlider.BackgroundColor3 = t.Surface
+    TransparencySliderStroke.Color = t.Stroke
+    SliderTrack.BackgroundColor3 = t.Surface2
+    SliderFill.BackgroundColor3 = t.Accent
+    SliderKnob.BackgroundColor3 = t.Accent
+
+    for _, panel in ipairs({
+        TeleportPanel,
+        SpeedSettingsPanel,
+        WallHackSettingsPanel,
+        MenuSettingsPanel
+    }) do
+        panel.BackgroundColor3 = t.Background
+    end
+
+    for _, header in ipairs({
+        TeleportHeaderFrame,
+        SpeedSettingsHeaderFrame,
+        WallHackSettingsHeaderFrame,
+        MenuSettingsHeaderFrame
+    }) do
+        header.BackgroundColor3 = t.Header
+    end
+
+    ThemeButton.Text =
+        isDarkTheme and "☾" or "☀"
+
+    FlyStatus.Text = "ЗАГРУЗИТЬ"
+    FlyStatus.TextColor3 = t.SubText
+
+    setFeatureState(
+        WallHackButton,
+        isWallHackEnabled
+    )
+
+    setFeatureState(
+        SpeedHackButton,
+        isSpeedHackEnabled
+    )
+
+    setFeatureState(
+        NoclipButton,
+        isNoclipEnabled
+    )
+
+    setFeatureState(
+        InfiniteJumpButton,
+        isInfiniteJumpEnabled
+    )
 end
+
+--========================================================--
+-- THEME BUTTON
+--========================================================--
+
+ThemeButton.MouseButton1Click:Connect(function()
+
+    isDarkTheme = not isDarkTheme
+
+    applyTheme()
+
+    showNotification(
+        isDarkTheme
+            and "Тёмная тема включена"
+            or "Светлая тема включена",
+        C().Accent
+    )
 end)
 
--- Обработчик разворачивания
-ExpandButton.MouseButton1Click:Connect(function()
-local success, result = pcall(function()
-print("Меню разворачивается")
-MinimizedContentLabel.Visible = false
-if ActivateButton then ActivateButton.Visible = true end
-if WallHackButton then WallHackButton.Visible = true end
-if SpeedHackButton then SpeedHackButton.Visible = true end
-if SpeedSettingsButton then SpeedSettingsButton.Visible = true end
-if NoclipButton then NoclipButton.Visible = true end
-if TeleportButton then TeleportButton.Visible = true end
-if InfiniteJumpButton then InfiniteJumpButton.Visible = true end
-if HeaderFrame then HeaderFrame.Visible = true end
-if ExpandButton then ExpandButton.Visible = false end
-local tween = TweenService:Create(MenuFrame, tweenInfo, {Size = UDim2.new(0, 400, 0, 300), BackgroundTransparency = 0})
-tween:Play()
-end)
-if not success then
-warn("Ошибка разворачивания: " .. tostring(result))
-end
-end)
-
--- Обработчик кнопки настроек меню
-MenuSettingsButton.MouseButton1Click:Connect(function()
-local success, result = pcall(function()
--- Сохраняем текущую позицию MenuFrame
-local menuPos = MenuFrame.Position
--- Проверяем позицию через clampPosition, чтобы не выходила за экран
-local clampedPos = clampPosition(menuPos, MenuSettingsPanel.AbsoluteSize)
-MenuFrame.Visible = false
--- Устанавливаем позицию MenuSettingsPanel равной позиции MenuFrame
-MenuSettingsPanel.Position = clampedPos
-animateMenuSettingsPanelAppearance()
-showNotification("Открыты настройки меню", Color3.fromRGB(0, 255, 0))
-end)
-if not success then
-warn("Ошибка открытия настроек: " .. tostring(result))
-showNotification("Ошибка открытия настроек!", Color3.fromRGB(255, 0, 0))
-end
-end)
-
--- Обработчик кнопки закрытия настроек меню
-MenuSettingsCloseButton.MouseButton1Click:Connect(function()
-local success, result = pcall(function()
--- Сохраняем текущую позицию MenuSettingsPanel
-local settingsPos = MenuSettingsPanel.Position
-animateMenuSettingsPanelDisappearance(function()
--- Устанавливаем MenuFrame в позицию MenuSettingsPanel
-MenuFrame.Position = settingsPos
-MenuFrame.Visible = true
--- Сохраняем новую позицию MenuFrame
-savePosition()
-showNotification("Настройки меню закрыты", Color3.fromRGB(255, 0, 0))
-end)
-end)
-if not success then
-warn("Ошибка закрытия настроек: " .. tostring(result))
-showNotification("Ошибка закрытия настроек!", Color3.fromRGB(255, 0, 0))
-end
-end)
-
--- Активация Fly
-local FLY_SCRIPT_URL = "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
-local isFlyEnabled = false
-local flyInstance = nil
-
-local function toggleFly()
-local success, result = pcall(function()
-isFlyEnabled = not isFlyEnabled
-if isFlyEnabled then
-flyInstance = loadstring(game:HttpGet(FLY_SCRIPT_URL))()
-showNotification("Fly активирован!", Color3.fromRGB(0, 255, 0))
-else
-if flyInstance then
-flyInstance = nil
-end
-showNotification("Fly деактивирован!", Color3.fromRGB(255, 0, 0))
-end
-end)
-if success then
-print("Fly " .. (isFlyEnabled and "включён" or "выключен"))
-else
-showNotification("Ошибка Fly: " .. tostring(result), Color3.fromRGB(255, 0, 0))
-isFlyEnabled = false
-warn("Ошибка Fly: " .. tostring(result))
-end
-end
+--========================================================--
+-- FLY
+--========================================================--
 
 ActivateButton.MouseButton1Click:Connect(function()
-print("Активируется FlyGuiV3")
-toggleFly()
+
+    FlyStatus.Text = "ЗАГРУЗКА..."
+    FlyStatus.TextColor3 = C().Accent
+
+    showNotification(
+        "Загрузка Fly...",
+        C().Accent
+    )
+
+    local success, result = pcall(function()
+
+        local source = game:HttpGet(
+            "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
+        )
+
+        local flyScript = loadstring(source)
+
+        if not flyScript then
+            error("loadstring вернул nil")
+        end
+
+        return flyScript()
+    end)
+
+    if success then
+
+        FlyStatus.Text = "ЗАГРУЗИТЬ"
+        FlyStatus.TextColor3 = C().SubText
+
+        showNotification(
+            "Fly успешно загружен",
+            C().Green
+        )
+
+    else
+
+        FlyStatus.Text = "ЗАГРУЗИТЬ"
+        FlyStatus.TextColor3 = C().SubText
+
+        showNotification(
+            "Ошибка загрузки Fly",
+            C().Red
+        )
+
+        warn(
+            "[MEDA HUB] Fly error:",
+            result
+        )
+    end
 end)
 
--- Логика SpeedHack
-local isSpeedHackEnabled = false
-local defaultSpeed = 16
+--========================================================--
+-- MENU SETTINGS
+--========================================================--
+
+MenuSettingsButton.MouseButton1Click:Connect(function()
+
+    savePosition()
+
+    MenuFrame.Visible = false
+
+    MenuSettingsPanel.Position =
+        MenuFrame.Position
+
+    openPanel(MenuSettingsPanel)
+
+    showNotification(
+        "Настройки меню открыты",
+        C().Accent
+    )
+end)
+
+MenuSettingsCloseButton.MouseButton1Click:Connect(function()
+
+    local pos =
+        MenuSettingsPanel.Position
+
+    closePanel(MenuSettingsPanel)
+
+    task.delay(0.23, function()
+
+        MenuFrame.Position = pos
+        MenuFrame.Visible = true
+
+        savePosition()
+    end)
+
+    showNotification(
+        "Настройки меню закрыты",
+        C().Accent
+    )
+end)
+
+--========================================================--
+-- OUT OF BOUNDS
+--========================================================--
+
+OutOfBoundsButton.MouseButton1Click:Connect(function()
+
+    allowOutOfBounds =
+        not allowOutOfBounds
+
+    OutOfBoundsButton.Text =
+        "Перемещение за границы экрана       "
+        ..
+        (
+            allowOutOfBounds
+                and "ВКЛ"
+                or "ВЫКЛ"
+        )
+
+    OutOfBoundsButton.TextColor3 =
+        allowOutOfBounds
+            and C().Green
+            or C().Text
+
+    showNotification(
+        allowOutOfBounds
+            and "Перемещение за границы включено"
+            or "Перемещение за границы выключено",
+
+        allowOutOfBounds
+            and C().Green
+            or C().Red
+    )
+end)
+
+--========================================================--
+-- MINIMIZE
+--========================================================--
+
+local minimizedMouseStart = nil
+
+MinimizeButton.MouseButton1Click:Connect(function()
+
+    HeaderFrame.Visible = false
+    Content.Visible = false
+
+    MinimizedContentLabel.Visible = true
+
+    tween(MenuFrame, NORMAL_TWEEN, {
+        Size = UDim2.fromOffset(64, 64)
+    }):Play()
+end)
+
+MinimizedContentLabel.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+
+        minimizedMouseStart = input.Position
+
+        beginDrag(MenuFrame, input)
+    end
+end)
+
+MinimizedContentLabel.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+    then
+
+        if minimizedMouseStart then
+
+            local distance =
+                (
+                    input.Position -
+                    minimizedMouseStart
+                ).Magnitude
+
+            if distance < 8 then
+
+                MinimizedContentLabel.Visible = false
+                HeaderFrame.Visible = true
+                Content.Visible = true
+
+                tween(MenuFrame, NORMAL_TWEEN, {
+                    Size = UDim2.fromOffset(
+                        MENU_WIDTH,
+                        MENU_HEIGHT
+                    )
+                }):Play()
+            end
+        end
+
+        minimizedMouseStart = nil
+    end
+end)
+
+--========================================================--
+-- SPEEDHACK
+--========================================================--
+
 local isAutoSpeedMaintainEnabled = false
 local speedMaintainConnection = nil
 
-local function setSpeed(speed, showNotify)
-local success, result = pcall(function()
-local character = LocalPlayer.Character
-local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-if humanoid then
-humanoid.WalkSpeed = speed
-if showNotify then
-showNotification("Скорость установлена: " .. speed, Color3.fromRGB(0, 255, 0))
-end
-else
-if showNotify then
-showNotification("Персонаж не найден!", Color3.fromRGB(255, 0, 0))
-end
-end
-end)
-if not success then
-warn("Ошибка SpeedHack: " .. tostring(result))
-end
+local function setSpeed(speed, notify)
+
+    local character = LocalPlayer.Character
+
+    local humanoid =
+        character
+        and character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+
+        if notify then
+            showNotification(
+                "Персонаж не найден",
+                C().Red
+            )
+        end
+
+        return
+    end
+
+    humanoid.WalkSpeed = speed
+
+    if notify then
+        showNotification(
+            "Скорость установлена: " .. tostring(speed),
+            C().Green
+        )
+    end
 end
 
 local function maintainSpeed()
-if not isAutoSpeedMaintainEnabled or not isSpeedHackEnabled then return end
-local character = LocalPlayer.Character
-local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-if humanoid then
-local targetSpeed = tonumber(SpeedSettingsInput.Text) or defaultSpeed
-if humanoid.WalkSpeed ~= targetSpeed then
-humanoid.WalkSpeed = targetSpeed
+
+    if not isSpeedHackEnabled
+        or not isAutoSpeedMaintainEnabled
+    then
+        return
+    end
+
+    local character = LocalPlayer.Character
+
+    local humanoid =
+        character
+        and character:FindFirstChildOfClass("Humanoid")
+
+    if humanoid then
+
+        local speed =
+            tonumber(SpeedSettingsInput.Text)
+            or DEFAULT_SPEED
+
+        humanoid.WalkSpeed = speed
+    end
 end
+
+local function stopSpeedMaintain()
+
+    if speedMaintainConnection then
+
+        speedMaintainConnection:Disconnect()
+
+        speedMaintainConnection = nil
+    end
 end
+
+local function startSpeedMaintain()
+
+    stopSpeedMaintain()
+
+    if isSpeedHackEnabled
+        and isAutoSpeedMaintainEnabled
+    then
+
+        speedMaintainConnection =
+            RunService.Heartbeat:Connect(
+                maintainSpeed
+            )
+    end
 end
 
 local function toggleSpeedHack()
-local success, result = pcall(function()
-isSpeedHackEnabled = not isSpeedHackEnabled
-if isSpeedHackEnabled then
-local speed = tonumber(SpeedSettingsInput.Text) or defaultSpeed
-if speed < 16 or speed > 2500 then
-speed = defaultSpeed
-SpeedSettingsInput.Text = tostring(defaultSpeed)
-end
-setSpeed(speed, true)
-SpeedHackButton.Text = "Disable SpeedHack"
-SpeedHackButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-if isAutoSpeedMaintainEnabled then
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-end
-speedMaintainConnection = RunService.Heartbeat:Connect(maintainSpeed)
-end
-else
-setSpeed(defaultSpeed, true)
-SpeedHackButton.Text = "Toggle SpeedHack"
-SpeedHackButton.BackgroundColor3 = isDarkTheme and Color3.fromRGB(0, 128, 255) or Color3.fromRGB(100, 180, 255)
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-speedMaintainConnection = nil
-end
-end
-end)
-if success then
-print("SpeedHack " .. (isSpeedHackEnabled and "включён" or "выключен"))
-else
-warn("Ошибка SpeedHack: " .. tostring(result))
-end
+
+    isSpeedHackEnabled =
+        not isSpeedHackEnabled
+
+    if isSpeedHackEnabled then
+
+        local speed =
+            tonumber(SpeedSettingsInput.Text)
+            or DEFAULT_SPEED
+
+        speed = math.clamp(
+            speed,
+            MIN_SPEED,
+            MAX_SPEED
+        )
+
+        SpeedSettingsInput.Text =
+            tostring(speed)
+
+        setSpeed(speed, true)
+        startSpeedMaintain()
+
+        setFeatureState(
+            SpeedHackButton,
+            true
+        )
+
+    else
+
+        setSpeed(
+            DEFAULT_SPEED,
+            true
+        )
+
+        stopSpeedMaintain()
+
+        setFeatureState(
+            SpeedHackButton,
+            false
+        )
+    end
 end
 
-SpeedHackButton.MouseButton1Click:Connect(toggleSpeedHack)
+SpeedHackButton.MouseButton1Click:Connect(
+    toggleSpeedHack
+)
 
-SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
-if enterPressed then
-local success, result = pcall(function()
-local speed = tonumber(SpeedSettingsInput.Text)
-if speed and speed >= 0 then
-if isSpeedHackEnabled then
-setSpeed(speed, true)
-end
-local speedValue = ReplicatedStorage:FindFirstChild("SpeedHackValue") or Instance.new("NumberValue")
-speedValue.Name = "SpeedHackValue"
-speedValue.Parent = ReplicatedStorage
-speedValue.Value = speed
-else
-showNotification("Введите число больше или равно 0!", Color3.fromRGB(255, 0, 0))
-SpeedSettingsInput.Text = tostring(defaultSpeed)
-end
-end)
-if not success then
-warn("Ошибка ввода скорости: " .. tostring(result))
-end
-end
-end)
-
-AutoSpeedMaintainButton.MouseButton1Click:Connect(function()
-local success, result = pcall(function()
-isAutoSpeedMaintainEnabled = not isAutoSpeedMaintainEnabled
-AutoSpeedMaintainButton.Text = "Auto Maintain Speed: " .. (isAutoSpeedMaintainEnabled and "ON" or "OFF")
-AutoSpeedMaintainButton.BackgroundColor3 = isAutoSpeedMaintainEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(100, 100, 100)
-if isAutoSpeedMaintainEnabled and isSpeedHackEnabled then
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-end
-speedMaintainConnection = RunService.Heartbeat:Connect(maintainSpeed)
-else
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-speedMaintainConnection = nil
-end
-end
-showNotification("Авто-поддержание скорости: " .. (isAutoSpeedMaintainEnabled and "ON" or "OFF"), isAutoSpeedMaintainEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0))
-end)
-if not success then
-warn("Ошибка авто-поддержания скорости: " .. tostring(result))
-showNotification("Ошибка авто-поддержания скорости: " .. tostring(result), Color3.fromRGB(255, 0, 0))
-end
-end)
+--========================================================--
+-- SPEED SETTINGS
+--========================================================--
 
 SpeedSettingsButton.MouseButton1Click:Connect(function()
-animateSpeedSettingsPanelAppearance()
-showNotification("Открыты настройки SpeedHack", Color3.fromRGB(0, 255, 0))
+
+    openPanel(SpeedSettingsPanel)
+
+    showNotification(
+        "Настройки скорости открыты",
+        C().Accent
+    )
 end)
 
 SpeedSettingsCloseButton.MouseButton1Click:Connect(function()
-animateSpeedSettingsPanelDisappearance(function()
-showNotification("Настройки SpeedHack закрыты", Color3.fromRGB(255, 0, 0))
-end)
+
+    closePanel(SpeedSettingsPanel)
+
+    showNotification(
+        "Настройки скорости закрыты",
+        C().Accent
+    )
 end)
 
-local function loadSpeed()
-local success, result = pcall(function()
-local speedValue = ReplicatedStorage:FindFirstChild("SpeedHackValue")
-if speedValue then
-SpeedSettingsInput.Text = tostring(speedValue.Value)
-end
-end)
-if success then
-print("Скорость загружена")
-else
-warn("Ошибка загрузки скорости: " .. tostring(result))
-end
-end
-loadSpeed()
+SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
 
--- Логика Infinite Jump
-local isInfiniteJumpEnabled = false
+    if not enterPressed then
+        return
+    end
+
+    local speed =
+        tonumber(SpeedSettingsInput.Text)
+
+    if not speed then
+
+        SpeedSettingsInput.Text =
+            tostring(DEFAULT_SPEED)
+
+        showNotification(
+            "Введите правильное число",
+            C().Red
+        )
+
+        return
+    end
+
+    speed = math.clamp(
+        speed,
+        MIN_SPEED,
+        MAX_SPEED
+    )
+
+    SpeedSettingsInput.Text =
+        tostring(speed)
+
+    if isSpeedHackEnabled then
+        setSpeed(speed, true)
+    end
+end)
+
+AutoSpeedMaintainButton.MouseButton1Click:Connect(function()
+
+    isAutoSpeedMaintainEnabled =
+        not isAutoSpeedMaintainEnabled
+
+    AutoSpeedMaintainButton.Text =
+        "Автоматически сохранять скорость       "
+        ..
+        (
+            isAutoSpeedMaintainEnabled
+                and "ВКЛ"
+                or "ВЫКЛ"
+        )
+
+    AutoSpeedMaintainButton.TextColor3 =
+        isAutoSpeedMaintainEnabled
+            and C().Green
+            or C().Text
+
+    if isAutoSpeedMaintainEnabled then
+        startSpeedMaintain()
+    else
+        stopSpeedMaintain()
+    end
+
+    showNotification(
+        isAutoSpeedMaintainEnabled
+            and "Автосохранение скорости включено"
+            or "Автосохранение скорости выключено",
+
+        isAutoSpeedMaintainEnabled
+            and C().Green
+            or C().Red
+    )
+end)
+
+--========================================================--
+-- WALLHACK SETTINGS
+--========================================================--
+
+-- ВАЖНО:
+-- Здесь поведение специально сделано таким же,
+-- как у SpeedHack.
+--
+-- Главное меню НЕ скрывается.
+-- Панель открывается через openPanel().
+-- Пока внутри панели ничего нет.
+
+WallHackSettingsButton.MouseButton1Click:Connect(function()
+
+    openPanel(WallHackSettingsPanel)
+
+    showNotification(
+        "Настройки WallHack открыты",
+        C().Accent
+    )
+end)
+
+WallHackSettingsCloseButton.MouseButton1Click:Connect(function()
+
+    closePanel(WallHackSettingsPanel)
+
+    showNotification(
+        "Настройки WallHack закрыты",
+        C().Accent
+    )
+end)
+
+--========================================================--
+-- INFINITE JUMP
+--========================================================--
+
 local infiniteJumpConnection = nil
 
 local function toggleInfiniteJump()
-local success, result = pcall(function()
-isInfiniteJumpEnabled = not isInfiniteJumpEnabled
-if isInfiniteJumpEnabled then
-if infiniteJumpConnection then
-infiniteJumpConnection:Disconnect()
-end
-infiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
-local character = LocalPlayer.Character
-local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-if humanoid then
-humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-end
-end)
-InfiniteJumpButton.Text = "Disable Infinite Jump"
-InfiniteJumpButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-showNotification("Infinite Jump включён!", Color3.fromRGB(0, 255, 0))
-else
-if infiniteJumpConnection then
-infiniteJumpConnection:Disconnect()
-infiniteJumpConnection = nil
-end
-InfiniteJumpButton.Text = "Toggle Infinite Jump"
-InfiniteJumpButton.BackgroundColor3 = isDarkTheme and Color3.fromRGB(0, 200, 200) or Color3.fromRGB(100, 255, 255)
-showNotification("Infinite Jump выключен!", Color3.fromRGB(255, 0, 0))
-end
-end)
-if success then
-print("Infinite Jump " .. (isInfiniteJumpEnabled and "включён" or "выключен"))
-else
-warn("Ошибка Infinite Jump: " .. tostring(result))
-showNotification("Ошибка Infinite Jump: " .. tostring(result), Color3.fromRGB(255, 0, 0))
-end
+
+    isInfiniteJumpEnabled =
+        not isInfiniteJumpEnabled
+
+    if isInfiniteJumpEnabled then
+
+        if infiniteJumpConnection then
+            infiniteJumpConnection:Disconnect()
+        end
+
+        infiniteJumpConnection =
+            UserInputService.JumpRequest:Connect(
+                function()
+
+                    local character =
+                        LocalPlayer.Character
+
+                    local humanoid =
+                        character
+                        and character:FindFirstChildOfClass(
+                            "Humanoid"
+                        )
+
+                    if humanoid then
+
+                        humanoid:ChangeState(
+                            Enum.HumanoidStateType.Jumping
+                        )
+                    end
+                end
+            )
+
+        setFeatureState(
+            InfiniteJumpButton,
+            true
+        )
+
+        showNotification(
+            "Бесконечный прыжок включён",
+            C().Green
+        )
+
+    else
+
+        if infiniteJumpConnection then
+
+            infiniteJumpConnection:Disconnect()
+
+            infiniteJumpConnection = nil
+        end
+
+        setFeatureState(
+            InfiniteJumpButton,
+            false
+        )
+
+        showNotification(
+            "Бесконечный прыжок выключен",
+            C().Red
+        )
+    end
 end
 
-InfiniteJumpButton.MouseButton1Click:Connect(toggleInfiniteJump)
+InfiniteJumpButton.MouseButton1Click:Connect(
+    toggleInfiniteJump
+)
 
--- WallHack
-local isWallHackEnabled = false
-local highlights = {}
+--========================================================--
+-- NOCLIP
+--========================================================--
 
-local function applyHighlight(player)
-local success, result = pcall(function()
-if player == LocalPlayer then return end
-if highlights[player] then
-highlights[player]:Destroy()
-highlights[player] = nil
-end
-local character = player.Character
-if not character then return end
-local highlight = Instance.new("Highlight")
-highlight.Parent = character
-highlight.Adornee = character
-highlight.FillColor = Color3.fromRGB(128, 0, 128)
-highlight.OutlineColor = Color3.fromRGB(128, 0, 128)
-highlight.FillTransparency = 0.9
-highlight.OutlineTransparency = 0
-highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-highlights[player] = highlight
-print("Highlight применён для " .. player.Name)
-end)
-if not success then
-warn("Ошибка WallHack: " .. tostring(result))
-end
-end
-
-local function removeHighlight(player)
-local success, result = pcall(function()
-if highlights[player] then
-highlights[player]:Destroy()
-highlights[player] = nil
-print("Highlight удалён для " .. player.Name)
-end
-end)
-if not success then
-warn("Ошибка удаления Highlight: " .. tostring(result))
-end
-end
-
-local function toggleWallHack()
-local success, result = pcall(function()
-isWallHackEnabled = not isWallHackEnabled
-if isWallHackEnabled then
-for _, player in ipairs(Players:GetPlayers()) do
-applyHighlight(player)
-end
-WallHackButton.Text = "Disable WallHack"
-WallHackButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-showNotification("WallHack включён!", Color3.fromRGB(0, 255, 0))
-else
-for player, _ in pairs(highlights) do
-removeHighlight(player)
-end
-WallHackButton.Text = "Toggle WallHack"
-WallHackButton.BackgroundColor3 = isDarkTheme and Color3.fromRGB(128, 0, 128) or Color3.fromRGB(180, 100, 180)
-showNotification("WallHack выключен!", Color3.fromRGB(255, 0, 0))
-end
-end)
-if success then
-print("WallHack " .. (isWallHackEnabled and "включён" or "выключен"))
-else
-warn("Ошибка WallHack: " .. tostring(result))
-end
-end
-
-WallHackButton.MouseButton1Click:Connect(toggleWallHack)
-
--- Логика Noclip
-local isNoclipEnabled = false
 local noclipConnection = nil
 
 local function setNoclip(enabled)
-local success, result = pcall(function()
-local character = LocalPlayer.Character
-if not character then
-showNotification("Персонаж не найден!", Color3.fromRGB(255, 0, 0))
-return
-end
-if enabled then
-if noclipConnection then
-noclipConnection:Disconnect()
-end
-noclipConnection = RunService.Stepped:Connect(function()
-for _, part in ipairs(character:GetDescendants()) do
-if part:IsA("BasePart") then
-part.CanCollide = false
-end
-end
-end)
-showNotification("Noclip включён!", Color3.fromRGB(0, 255, 0))
-else
-for _, part in ipairs(character:GetDescendants()) do
-if part:IsA("BasePart") then
-part.CanCollide = true
-end
-end
-if noclipConnection then
-noclipConnection:Disconnect()
-noclipConnection = nil
-end
-showNotification("Noclip выключен!", Color3.fromRGB(255, 0, 0))
-end
-end)
-if success then
-print("Noclip " .. (enabled and "включён" or "выключен"))
-else
-warn("Ошибка Noclip: " .. tostring(result))
-showNotification("Ошибка Noclip: " .. tostring(result), Color3.fromRGB(255, 0, 0))
-end
+
+    if noclipConnection then
+
+        noclipConnection:Disconnect()
+
+        noclipConnection = nil
+    end
+
+    local character =
+        LocalPlayer.Character
+
+    if not character then
+        return
+    end
+
+    if enabled then
+
+        noclipConnection =
+            RunService.Stepped:Connect(
+                function()
+
+                    local currentCharacter =
+                        LocalPlayer.Character
+
+                    if not currentCharacter then
+                        return
+                    end
+
+                    for _, part in ipairs(
+                        currentCharacter:GetDescendants()
+                    ) do
+
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            )
+
+    else
+
+        for _, part in ipairs(
+            character:GetDescendants()
+        ) do
+
+            if part:IsA("BasePart") then
+
+                if part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
 end
 
 local function toggleNoclip()
-local success, result = pcall(function()
-isNoclipEnabled = not isNoclipEnabled
-setNoclip(isNoclipEnabled)
-NoclipButton.Text = isNoclipEnabled and "Disable Noclip" or "Toggle Noclip"
-NoclipButton.BackgroundColor3 = isNoclipEnabled and Color3.fromRGB(255, 100, 100) or
-(isDarkTheme and Color3.fromRGB(255, 165, 0) or Color3.fromRGB(255, 200, 100))
+
+    isNoclipEnabled =
+        not isNoclipEnabled
+
+    setNoclip(isNoclipEnabled)
+
+    setFeatureState(
+        NoclipButton,
+        isNoclipEnabled
+    )
+
+    showNotification(
+        isNoclipEnabled
+            and "Noclip включён"
+            or "Noclip выключен",
+
+        isNoclipEnabled
+            and C().Green
+            or C().Red
+    )
+end
+
+NoclipButton.MouseButton1Click:Connect(
+    toggleNoclip
+)
+
+--========================================================--
+-- WALLHACK
+--========================================================--
+
+local highlights = {}
+
+local function removeHighlight(player)
+
+    local highlight =
+        highlights[player]
+
+    if highlight then
+
+        highlight:Destroy()
+
+        highlights[player] = nil
+    end
+end
+
+local function applyHighlight(player)
+
+    if player == LocalPlayer then
+        return
+    end
+
+    removeHighlight(player)
+
+    local character =
+        player.Character
+
+    if not character then
+        return
+    end
+
+    local highlight =
+        Instance.new("Highlight")
+
+    highlight.Name = "MedaHighlight"
+    highlight.Adornee = character
+    highlight.Parent = character
+
+    highlight.FillColor = C().Accent
+    highlight.OutlineColor = C().Accent2
+
+    highlight.FillTransparency = 0.82
+    highlight.OutlineTransparency = 0
+
+    highlight.DepthMode =
+        Enum.HighlightDepthMode.AlwaysOnTop
+
+    highlights[player] = highlight
+end
+
+local function refreshHighlights()
+
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
+
+        if player ~= LocalPlayer then
+
+            if isWallHackEnabled then
+                applyHighlight(player)
+            else
+                removeHighlight(player)
+            end
+        end
+    end
+end
+
+local function toggleWallHack()
+
+    isWallHackEnabled =
+        not isWallHackEnabled
+
+    if isWallHackEnabled then
+
+        refreshHighlights()
+
+        setFeatureState(
+            WallHackButton,
+            true
+        )
+
+        showNotification(
+            "WallHack включён",
+            C().Green
+        )
+
+    else
+
+        for player in pairs(highlights) do
+            removeHighlight(player)
+        end
+
+        setFeatureState(
+            WallHackButton,
+            false
+        )
+
+        showNotification(
+            "WallHack выключен",
+            C().Red
+        )
+    end
+end
+
+WallHackButton.MouseButton1Click:Connect(
+    toggleWallHack
+)
+
+Players.PlayerAdded:Connect(function(player)
+
+    player.CharacterAdded:Connect(function()
+
+        task.wait(0.5)
+
+        if isWallHackEnabled then
+            applyHighlight(player)
+        end
+    end)
 end)
-if not success then
-warn("Ошибка toggleNoclip: " .. tostring(result))
-showNotification("Ошибка toggleNoclip: " .. tostring(result), Color3.fromRGB(255, 0, 0))
-end
+
+Players.PlayerRemoving:Connect(function(player)
+    removeHighlight(player)
+end)
+
+for _, player in ipairs(
+    Players:GetPlayers()
+) do
+
+    if player ~= LocalPlayer then
+
+        player.CharacterAdded:Connect(function()
+
+            task.wait(0.5)
+
+            if isWallHackEnabled then
+                applyHighlight(player)
+            end
+        end)
+    end
 end
 
-NoclipButton.MouseButton1Click:Connect(toggleNoclip)
+--========================================================--
+-- TELEPORT
+--========================================================--
 
--- Обновление SpeedHack и Noclip при появлении персонажа
-table.insert(connections, LocalPlayer.CharacterAdded:Connect(function(character)
-if isSpeedHackEnabled then
-task.wait(0.5)
-local speed = tonumber(SpeedSettingsInput.Text) or defaultSpeed
-setSpeed(speed, false)
-if isAutoSpeedMaintainEnabled then
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-end
-speedMaintainConnection = RunService.Heartbeat:Connect(maintainSpeed)
-end
-end
-if isNoclipEnabled then
-task.wait(0.5)
-setNoclip(true)
-end
-end))
+local playerButtons = {}
 
--- Обработка новых игроков и респавна для WallHack
-for _, player in ipairs(Players:GetPlayers()) do
-if isWallHackEnabled and player.Character then
-applyHighlight(player)
-end
-table.insert(connections, player.CharacterAdded:Connect(function(character)
-if isWallHackEnabled then
-task.wait(0.5)
-applyHighlight(player)
-end
-end))
+local function createPlayerButton(player)
+
+    local button =
+        Instance.new("TextButton")
+
+    button.Size =
+        UDim2.new(1, -4, 0, 46)
+
+    button.BackgroundColor3 =
+        C().Surface
+
+    button.BorderSizePixel = 0
+    button.Text = ""
+    button.AutoButtonColor = false
+    button.ZIndex = 70
+
+    addCorner(button, 10)
+
+    addStroke(
+        button,
+        C().Stroke,
+        1,
+        0.2
+    )
+
+    local avatar =
+        Instance.new("Frame")
+
+    avatar.Parent = button
+    avatar.Size =
+        UDim2.fromOffset(30, 30)
+
+    avatar.Position =
+        UDim2.fromOffset(8, 8)
+
+    avatar.BackgroundColor3 =
+        C().Accent
+
+    avatar.BorderSizePixel = 0
+    avatar.ZIndex = 71
+
+    addCorner(avatar, 9)
+
+    local avatarText =
+        createLabel(
+            avatar,
+            string.sub(
+                player.Name,
+                1,
+                1
+            ):upper(),
+            UDim2.fromScale(1, 1),
+            UDim2.fromScale(0, 0),
+            Enum.Font.GothamBold,
+            13
+        )
+
+    avatarText.TextXAlignment =
+        Enum.TextXAlignment.Center
+
+    avatarText.TextColor3 =
+        Color3.new(1, 1, 1)
+
+    avatarText.ZIndex = 72
+
+    local nameLabel =
+        createLabel(
+            button,
+            player.Name,
+            UDim2.new(1, -80, 1, 0),
+            UDim2.fromOffset(48, 0),
+            Enum.Font.GothamMedium,
+            12
+        )
+
+    nameLabel.ZIndex = 71
+
+    local arrow =
+        createLabel(
+            button,
+            "→",
+            UDim2.fromOffset(30, 46),
+            UDim2.new(1, -38, 0, 0),
+            Enum.Font.GothamBold,
+            17
+        )
+
+    arrow.TextXAlignment =
+        Enum.TextXAlignment.Center
+
+    arrow.TextColor3 =
+        C().Accent
+
+    arrow.ZIndex = 71
+
+    return button
 end
 
-table.insert(connections, Players.PlayerAdded:Connect(function(player)
-table.insert(connections, player.CharacterAdded:Connect(function(character)
-if isWallHackEnabled then
-task.wait(0.5)
-applyHighlight(player)
-end
-end))
-end))
-
-table.insert(connections, Players.PlayerRemoving:Connect(function(player)
-removeHighlight(player)
-end))
-
--- Логика телепортации к игроку
 local function updatePlayerList()
-for _, button in pairs(playerButtons) do
-if button then
-button:Destroy()
-end
-end
-playerButtons = {}
-PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
 
-local players = Players:GetPlayers()  
-for i, player in ipairs(players) do  
-    if player ~= LocalPlayer then  
-        local button = Instance.new("TextButton")  
-        button.Parent = PlayerList  
-        button.Size = UDim2.new(1, -10, 0, 30)  
-        button.BackgroundColor3 = isDarkTheme and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(150, 150, 150)  
-        button.Text = player.Name  
-        button.TextColor3 = Color3.fromRGB(255, 255, 255)  
-        button.Font = Enum.Font.Gotham  
-        button.TextSize = 14  
-        button.ZIndex = 6  
-        button.AutoButtonColor = false  
+    for _, button in ipairs(
+        playerButtons
+    ) do
 
-        local corner = Instance.new("UICorner")  
-        corner.CornerRadius = UDim.new(0, 5)  
-        corner.Parent = button  
+        if button then
+            button:Destroy()
+        end
+    end
 
-        setupButtonFeedback(button)  
+    table.clear(playerButtons)
 
-        button.MouseButton1Click:Connect(function()  
-            local success, result = pcall(function()  
-                if player.Character and player.Character.HumanoidRootPart and LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart then  
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame  
-                    showNotification("Телепортирован к " .. player.Name, Color3.fromRGB(0, 255, 0))  
-                else  
-                    showNotification("Игрок или персонаж недоступен!", Color3.fromRGB(255, 0, 0))  
-                end  
-            end)  
-            if not success then  
-                warn("Ошибка телепортации: " .. tostring(result))  
-                showNotification("Ошибка телепортации!", Color3.fromRGB(255, 0, 0))  
-            end  
-        end)  
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
 
-        table.insert(playerButtons, button)  
-    end  
-end  
+        if player ~= LocalPlayer then
 
-PlayerList.CanvasSize = UDim2.new(0, 0, 0, (#players - 1) * 35 + 30)
+            local button =
+                createPlayerButton(player)
 
-end
+            button.Parent = PlayerList
 
-table.insert(connections, Players.PlayerAdded:Connect(updatePlayerList))
-table.insert(connections, Players.PlayerRemoving:Connect(updatePlayerList))
+            setupButtonFeedback(button)
 
-TeleportButton.MouseButton1Click:Connect(function()
-animateTeleportPanelAppearance()
-updatePlayerList()
-showNotification("Открыт список игроков", Color3.fromRGB(0, 255, 0))
-end)
+            button.MouseButton1Click:Connect(
+                function()
 
-TeleportCloseButton.MouseButton1Click:Connect(function()
-animateTeleportPanelDisappearance(function()
-updatePlayerList()
-showNotification("Список игроков закрыт", Color3.fromRGB(255, 0, 0))
-end)
-end)
+                    local myCharacter =
+                        LocalPlayer.Character
 
--- Очистка Noclip при закрытии
-local function cleanupNoclip()
-local success, result = pcall(function()
-if isNoclipEnabled then
-setNoclip(false)
-end
-end)
-if not success then
-warn("Ошибка очистки Noclip: " .. tostring(result))
-end
-end
+                    local targetCharacter =
+                        player.Character
 
--- Очистка Infinite Jump при закрытии
-local function cleanupInfiniteJump()
-local success, result = pcall(function()
-if isInfiniteJumpEnabled then
-if infiniteJumpConnection then
-infiniteJumpConnection:Disconnect()
-infiniteJumpConnection = nil
-end
-end
-end)
-if not success then
-warn("Ошибка очистки Infinite Jump: " .. tostring(result))
-end
+                    local myRoot =
+                        myCharacter
+                        and myCharacter:FindFirstChild(
+                            "HumanoidRootPart"
+                        )
+
+                    local targetRoot =
+                        targetCharacter
+                        and targetCharacter:FindFirstChild(
+                            "HumanoidRootPart"
+                        )
+
+                    if myRoot and targetRoot then
+
+                        myRoot.CFrame =
+                            targetRoot.CFrame
+                            + Vector3.new(
+                                0,
+                                3,
+                                0
+                            )
+
+                        showNotification(
+                            "Телепорт к "
+                                .. player.Name,
+                            C().Green
+                        )
+
+                    else
+
+                        showNotification(
+                            "Игрок недоступен",
+                            C().Red
+                        )
+                    end
+                end
+            )
+
+            table.insert(
+                playerButtons,
+                button
+            )
+        end
+    end
 end
 
--- Очистка SpeedHack
-local function cleanupSpeedHack()
-local success, result = pcall(function()
-if isSpeedHackEnabled then
-setSpeed(defaultSpeed, false)
-end
-if speedMaintainConnection then
-speedMaintainConnection:Disconnect()
-speedMaintainConnection = nil
-end
-end)
-if not success then
-warn("Ошибка очистки SpeedHack: " .. tostring(result))
-end
-end
+TeleportButton.MouseButton1Click:Connect(
+    function()
 
--- Обновлённая функция очи
+        updatePlayerList()
+
+        openPanel(TeleportPanel)
+
+        showNotification(
+            "Список игроков открыт",
+            C().Accent
+        )
+    end
+)
+
+TeleportCloseButton.MouseButton1Click:Connect(
+    function()
+        closePanel(TeleportPanel)
+    end
+)
+
+Players.PlayerAdded:Connect(
+    function()
+
+        if TeleportPanel.Visible then
+            updatePlayerList()
+        end
+    end
+)
+
+Players.PlayerRemoving:Connect(
+    function()
+
+        if TeleportPanel.Visible then
+            updatePlayerList()
+        end
+    end
+)
+
+--========================================================--
+-- CHARACTER RESPAWN
+--========================================================--
+
+LocalPlayer.CharacterAdded:Connect(
+    function()
+
+        task.wait(0.5)
+
+        if isSpeedHackEnabled then
+
+            local speed =
+                tonumber(
+                    SpeedSettingsInput.Text
+                )
+                or DEFAULT_SPEED
+
+            setSpeed(
+                speed,
+                false
+            )
+
+            startSpeedMaintain()
+        end
+
+        if isNoclipEnabled then
+            setNoclip(true)
+        end
+    end
+)
+
+--========================================================--
+-- INITIAL STATE
+--========================================================--
+
+setFeatureState(
+    WallHackButton,
+    false
+)
+
+setFeatureState(
+    SpeedHackButton,
+    false
+)
+
+setFeatureState(
+    NoclipButton,
+    false
+)
+
+setFeatureState(
+    InfiniteJumpButton,
+    false
+)
+
+FlyStatus.Text = "ЗАГРУЗИТЬ"
+FlyStatus.TextColor3 = C().SubText
+
+OutOfBoundsButton.Text =
+    "Перемещение за границы экрана       ВЫКЛ"
+
+AutoSpeedMaintainButton.Text =
+    "Автоматически сохранять скорость       ВЫКЛ"
+
+TransparencyValue.Text =
+    tostring(
+        math.floor(
+            dragTransparency * 100 + 0.5
+        )
+    ) .. "%"
+
+applyTheme()
+
+print("[MEDA HUB] v3 loaded successfully")
