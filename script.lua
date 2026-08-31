@@ -125,21 +125,17 @@ end
 
 local function addGradient(parent, color1, color2, rotation)
     local g = Instance.new("UIGradient")
-
     g.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, color1),
         ColorSequenceKeypoint.new(1, color2)
     })
-
     g.Rotation = rotation or 0
     g.Parent = parent
-
     return g
 end
 
 local function createLabel(parent, text, size, position, font, textSize)
     local label = Instance.new("TextLabel")
-
     label.Parent = parent
     label.BackgroundTransparency = 1
     label.Size = size
@@ -150,7 +146,6 @@ local function createLabel(parent, text, size, position, font, textSize)
     label.TextSize = textSize or 14
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextYAlignment = Enum.TextYAlignment.Center
-
     return label
 end
 
@@ -175,7 +170,6 @@ local NORMAL_TWEEN = TweenInfo.new(
 --========================================================--
 
 local NotificationHolder = Instance.new("Frame")
-
 NotificationHolder.Parent = ScreenGui
 NotificationHolder.Size = UDim2.fromOffset(320, 400)
 NotificationHolder.Position = UDim2.new(1, -335, 0, 20)
@@ -183,7 +177,6 @@ NotificationHolder.BackgroundTransparency = 1
 NotificationHolder.ZIndex = 200
 
 local NotificationLayout = Instance.new("UIListLayout")
-
 NotificationLayout.Parent = NotificationHolder
 NotificationLayout.Padding = UDim.new(0, 8)
 NotificationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
@@ -191,7 +184,6 @@ NotificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local function showNotification(message, notificationColor)
     local holder = Instance.new("Frame")
-
     holder.Parent = NotificationHolder
     holder.Size = UDim2.fromOffset(300, 54)
     holder.BackgroundColor3 = C().Surface
@@ -203,14 +195,12 @@ local function showNotification(message, notificationColor)
     addStroke(holder, C().Stroke, 1, 0.15)
 
     local accent = Instance.new("Frame")
-
     accent.Parent = holder
     accent.Size = UDim2.fromOffset(4, 34)
     accent.Position = UDim2.fromOffset(8, 10)
     accent.BackgroundColor3 = notificationColor or C().Accent
     accent.BorderSizePixel = 0
     accent.ZIndex = 202
-
     addCorner(accent, 3)
 
     local text = createLabel(
@@ -260,18 +250,15 @@ end
 --========================================================--
 
 local MenuFrame = Instance.new("Frame")
-
 MenuFrame.Name = "MenuFrame"
 MenuFrame.Parent = ScreenGui
 MenuFrame.Size = UDim2.fromOffset(MENU_WIDTH, MENU_HEIGHT)
-
 MenuFrame.Position = UDim2.new(
     0.5,
     -MENU_WIDTH / 2,
     0.5,
     -MENU_HEIGHT / 2
 )
-
 MenuFrame.BackgroundColor3 = C().Background
 MenuFrame.BorderSizePixel = 0
 MenuFrame.Active = true
@@ -286,7 +273,6 @@ addStroke(MenuFrame, C().Stroke, 1, 0.05)
 --========================================================--
 
 local HeaderFrame = Instance.new("Frame")
-
 HeaderFrame.Name = "HeaderFrame"
 HeaderFrame.Parent = MenuFrame
 HeaderFrame.Size = UDim2.new(1, 0, 0, 68)
@@ -294,48 +280,31 @@ HeaderFrame.BackgroundColor3 = C().Header
 HeaderFrame.BorderSizePixel = 0
 HeaderFrame.ZIndex = 11
 HeaderFrame.Active = true
-
 addCorner(HeaderFrame, 16)
 
 local HeaderBottom = Instance.new("Frame")
-
 HeaderBottom.Parent = HeaderFrame
 HeaderBottom.Size = UDim2.new(1, -30, 0, 2)
 HeaderBottom.Position = UDim2.new(0, 15, 1, -2)
 HeaderBottom.BackgroundColor3 = C().Accent
 HeaderBottom.BorderSizePixel = 0
 HeaderBottom.ZIndex = 13
-
 addCorner(HeaderBottom, 2)
-
-addGradient(
-    HeaderBottom,
-    C().Accent,
-    C().Accent2,
-    0
-)
+addGradient(HeaderBottom, C().Accent, C().Accent2, 0)
 
 --========================================================--
 -- LOGO
 --========================================================--
 
 local Logo = Instance.new("Frame")
-
 Logo.Parent = HeaderFrame
 Logo.Size = UDim2.fromOffset(40, 40)
 Logo.Position = UDim2.fromOffset(14, 14)
 Logo.BackgroundColor3 = C().Accent
 Logo.BorderSizePixel = 0
 Logo.ZIndex = 15
-
 addCorner(Logo, 11)
-
-addGradient(
-    Logo,
-    C().Accent,
-    C().Accent2,
-    45
-)
+addGradient(Logo, C().Accent, C().Accent2, 45)
 
 local LogoText = createLabel(
     Logo,
@@ -345,7 +314,6 @@ local LogoText = createLabel(
     Enum.Font.GothamBold,
     21
 )
-
 LogoText.TextColor3 = Color3.new(1, 1, 1)
 LogoText.TextXAlignment = Enum.TextXAlignment.Center
 LogoText.ZIndex = 16
@@ -362,7 +330,6 @@ local HeaderLabel = createLabel(
     Enum.Font.GothamBold,
     16
 )
-
 HeaderLabel.ZIndex = 15
 
 local HeaderSub = createLabel(
@@ -373,7 +340,6 @@ local HeaderSub = createLabel(
     Enum.Font.Gotham,
     11
 )
-
 HeaderSub.TextColor3 = C().SubText
 HeaderSub.ZIndex = 15
 
@@ -383,11 +349,9 @@ HeaderSub.ZIndex = 15
 
 local function makeHeaderButton(symbol, offset)
     local button = Instance.new("TextButton")
-
     button.Parent = HeaderFrame
     button.Size = UDim2.fromOffset(30, 30)
     button.Position = UDim2.new(1, offset, 0, 19)
-
     button.BackgroundColor3 = C().Surface2
     button.BorderSizePixel = 0
     button.Text = symbol
@@ -396,10 +360,8 @@ local function makeHeaderButton(symbol, offset)
     button.TextSize = 14
     button.AutoButtonColor = false
     button.ZIndex = 20
-
     addCorner(button, 8)
     addStroke(button, C().Stroke, 1, 0.25)
-
     return button
 end
 
@@ -415,7 +377,6 @@ CloseButton.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
 --========================================================--
 
 local Content = Instance.new("Frame")
-
 Content.Parent = MenuFrame
 Content.Size = UDim2.new(1, -30, 1, -84)
 Content.Position = UDim2.fromOffset(15, 77)
@@ -430,7 +391,6 @@ local SectionTitle = createLabel(
     Enum.Font.GothamBold,
     10
 )
-
 SectionTitle.TextColor3 = C().SubText
 SectionTitle.ZIndex = 12
 
@@ -442,7 +402,6 @@ local featureData = {}
 
 local function createFeatureButton(text, icon, x, y)
     local button = Instance.new("TextButton")
-
     button.Parent = Content
     button.Size = UDim2.fromOffset(198, 58)
     button.Position = UDim2.fromOffset(x, y)
@@ -456,14 +415,12 @@ local function createFeatureButton(text, icon, x, y)
     addStroke(button, C().Stroke, 1, 0.2)
 
     local iconBox = Instance.new("Frame")
-
     iconBox.Parent = button
     iconBox.Size = UDim2.fromOffset(36, 36)
     iconBox.Position = UDim2.fromOffset(10, 11)
     iconBox.BackgroundColor3 = C().Surface2
     iconBox.BorderSizePixel = 0
     iconBox.ZIndex = 13
-
     addCorner(iconBox, 9)
 
     local iconLabel = createLabel(
@@ -474,7 +431,6 @@ local function createFeatureButton(text, icon, x, y)
         Enum.Font.GothamBold,
         16
     )
-
     iconLabel.TextXAlignment = Enum.TextXAlignment.Center
     iconLabel.TextColor3 = C().Accent
     iconLabel.ZIndex = 14
@@ -487,7 +443,6 @@ local function createFeatureButton(text, icon, x, y)
         Enum.Font.GothamBold,
         12
     )
-
     title.ZIndex = 14
 
     local status = createLabel(
@@ -498,7 +453,6 @@ local function createFeatureButton(text, icon, x, y)
         Enum.Font.Gotham,
         10
     )
-
     status.TextColor3 = C().SubText
     status.ZIndex = 14
 
@@ -541,7 +495,6 @@ FlyStatus.TextColor3 = C().SubText
 --========================================================--
 
 local SpeedSettingsButton = Instance.new("TextButton")
-
 SpeedSettingsButton.Parent = Content
 SpeedSettingsButton.Size = UDim2.fromOffset(24, 24)
 SpeedSettingsButton.Position = UDim2.fromOffset(173, 113)
@@ -553,22 +506,16 @@ SpeedSettingsButton.Font = Enum.Font.GothamBold
 SpeedSettingsButton.TextSize = 11
 SpeedSettingsButton.AutoButtonColor = false
 SpeedSettingsButton.ZIndex = 20
-
 addCorner(SpeedSettingsButton, 7)
 
 --========================================================--
 -- WALLHACK SETTINGS BUTTON
 --========================================================--
 
--- Такая же кнопка, как у SpeedHack.
 local WallHackSettingsButton = Instance.new("TextButton")
-
 WallHackSettingsButton.Parent = Content
 WallHackSettingsButton.Size = UDim2.fromOffset(24, 24)
-
--- Находится внутри карточки WallHack
 WallHackSettingsButton.Position = UDim2.fromOffset(385, 46)
-
 WallHackSettingsButton.BackgroundColor3 = C().Surface2
 WallHackSettingsButton.BorderSizePixel = 0
 WallHackSettingsButton.Text = "⚙"
@@ -577,7 +524,6 @@ WallHackSettingsButton.Font = Enum.Font.GothamBold
 WallHackSettingsButton.TextSize = 11
 WallHackSettingsButton.AutoButtonColor = false
 WallHackSettingsButton.ZIndex = 20
-
 addCorner(WallHackSettingsButton, 7)
 
 --========================================================--
@@ -585,7 +531,6 @@ addCorner(WallHackSettingsButton, 7)
 --========================================================--
 
 local MinimizedContentLabel = Instance.new("TextButton")
-
 MinimizedContentLabel.Parent = MenuFrame
 MinimizedContentLabel.Size = UDim2.fromScale(1, 1)
 MinimizedContentLabel.BackgroundTransparency = 1
@@ -608,18 +553,15 @@ local panelHeaders = {}
 
 local function createPanel(name, title)
     local panel = Instance.new("Frame")
-
     panel.Name = name
     panel.Parent = ScreenGui
     panel.Size = UDim2.fromOffset(PANEL_WIDTH, PANEL_HEIGHT)
-
     panel.Position = UDim2.new(
         0.5,
         -PANEL_WIDTH / 2,
         0.5,
         -PANEL_HEIGHT / 2
     )
-
     panel.BackgroundColor3 = C().Background
     panel.BorderSizePixel = 0
     panel.Visible = false
@@ -631,25 +573,21 @@ local function createPanel(name, title)
     addStroke(panel, C().Stroke, 1, 0.05)
 
     local header = Instance.new("Frame")
-
     header.Parent = panel
     header.Size = UDim2.new(1, 0, 0, 58)
     header.BackgroundColor3 = C().Header
     header.BorderSizePixel = 0
     header.ZIndex = 61
     header.Active = true
-
     addCorner(header, 16)
 
     local line = Instance.new("Frame")
-
     line.Parent = header
     line.Size = UDim2.new(1, -28, 0, 2)
     line.Position = UDim2.new(0, 14, 1, -2)
     line.BackgroundColor3 = C().Accent
     line.BorderSizePixel = 0
     line.ZIndex = 63
-
     addCorner(line, 2)
 
     local titleLabel = createLabel(
@@ -660,15 +598,12 @@ local function createPanel(name, title)
         Enum.Font.GothamBold,
         15
     )
-
     titleLabel.ZIndex = 64
 
     local close = Instance.new("TextButton")
-
     close.Parent = header
     close.Size = UDim2.fromOffset(31, 31)
     close.Position = UDim2.new(1, -45, 0, 13)
-
     close.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
     close.BorderSizePixel = 0
     close.Text = "×"
@@ -677,11 +612,9 @@ local function createPanel(name, title)
     close.TextSize = 16
     close.AutoButtonColor = false
     close.ZIndex = 65
-
     addCorner(close, 8)
 
     local body = Instance.new("ScrollingFrame")
-
     body.Parent = panel
     body.Size = UDim2.new(1, -24, 1, -74)
     body.Position = UDim2.fromOffset(12, 66)
@@ -693,7 +626,6 @@ local function createPanel(name, title)
     body.ZIndex = 62
 
     local layout = Instance.new("UIListLayout")
-
     layout.Parent = body
     layout.Padding = UDim.new(0, 5)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -726,12 +658,6 @@ SpeedSettingsCloseButton,
 SpeedSettingsList =
     createPanel("SpeedSettingsPanel", "ϟ  НАСТРОЙКИ СКОРОСТИ")
 
---========================================================--
--- WALLHACK SETTINGS PANEL
---========================================================--
-
--- Полностью такой же тип панели, как SpeedSettingsPanel.
--- Внутри пока ничего не добавляем.
 local WallHackSettingsPanel,
 WallHackSettingsHeaderFrame,
 WallHackSettingsCloseButton,
@@ -739,14 +665,14 @@ WallHackSettingsList =
     createPanel("WallHackSettingsPanel", "◈  НАСТРОЙКИ WALLHACK")
 
 --========================================================--
--- NICKNAMES
+-- WALLHACK SETTINGS / NICKNAMES
 --========================================================--
 
 local showNicknames = false
+local showHealth = false
 local nicknameDistance = 500
 
 local NicknamesButton = Instance.new("TextButton")
-
 NicknamesButton.Parent = WallHackSettingsList
 NicknamesButton.Size = UDim2.new(1, -4, 0, 43)
 NicknamesButton.BackgroundColor3 = C().Surface
@@ -757,7 +683,6 @@ NicknamesButton.Font = Enum.Font.GothamMedium
 NicknamesButton.TextSize = 12
 NicknamesButton.AutoButtonColor = false
 NicknamesButton.ZIndex = 70
-
 addCorner(NicknamesButton, 10)
 addStroke(NicknamesButton, C().Stroke, 1, 0.15)
 
@@ -769,9 +694,37 @@ local NicknamesInfo = createLabel(
     Enum.Font.Gotham,
     10
 )
-
 NicknamesInfo.TextColor3 = C().SubText
 NicknamesInfo.ZIndex = 70
+
+--========================================================--
+-- HEALTH DISPLAY TOGGLE
+--========================================================--
+
+local HealthButton = Instance.new("TextButton")
+HealthButton.Parent = WallHackSettingsList
+HealthButton.Size = UDim2.new(1, -4, 0, 43)
+HealthButton.BackgroundColor3 = C().Surface
+HealthButton.BorderSizePixel = 0
+HealthButton.Text = "Показывать здоровье       ВЫКЛ"
+HealthButton.TextColor3 = C().Text
+HealthButton.Font = Enum.Font.GothamMedium
+HealthButton.TextSize = 12
+HealthButton.AutoButtonColor = false
+HealthButton.ZIndex = 70
+addCorner(HealthButton, 10)
+addStroke(HealthButton, C().Stroke, 1, 0.15)
+
+local HealthInfo = createLabel(
+    WallHackSettingsList,
+    "Компактная полоска HP рядом с никнеймом",
+    UDim2.new(1, -4, 0, 22),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.Gotham,
+    10
+)
+HealthInfo.TextColor3 = C().SubText
+HealthInfo.ZIndex = 70
 
 local MenuSettingsPanel,
 MenuSettingsHeaderFrame,
@@ -784,7 +737,6 @@ MenuSettingsList =
 --========================================================--
 
 local SpeedSettingsInput = Instance.new("TextBox")
-
 SpeedSettingsInput.Parent = SpeedSettingsList
 SpeedSettingsInput.Size = UDim2.new(1, -4, 0, 45)
 SpeedSettingsInput.BackgroundColor3 = C().Input
@@ -797,7 +749,6 @@ SpeedSettingsInput.Font = Enum.Font.GothamMedium
 SpeedSettingsInput.TextSize = 14
 SpeedSettingsInput.ClearTextOnFocus = false
 SpeedSettingsInput.ZIndex = 70
-
 addCorner(SpeedSettingsInput, 10)
 addStroke(SpeedSettingsInput, C().Stroke, 1, 0.15)
 
@@ -809,7 +760,6 @@ local SpeedInfo = createLabel(
     Enum.Font.Gotham,
     10
 )
-
 SpeedInfo.TextColor3 = C().SubText
 
 --========================================================--
@@ -817,7 +767,6 @@ SpeedInfo.TextColor3 = C().SubText
 --========================================================--
 
 local AutoSpeedMaintainButton = Instance.new("TextButton")
-
 AutoSpeedMaintainButton.Parent = SpeedSettingsList
 AutoSpeedMaintainButton.Size = UDim2.new(1, -4, 0, 43)
 AutoSpeedMaintainButton.BackgroundColor3 = C().Surface
@@ -829,7 +778,6 @@ AutoSpeedMaintainButton.Font = Enum.Font.GothamMedium
 AutoSpeedMaintainButton.TextSize = 12
 AutoSpeedMaintainButton.AutoButtonColor = false
 AutoSpeedMaintainButton.ZIndex = 70
-
 addCorner(AutoSpeedMaintainButton, 10)
 addStroke(AutoSpeedMaintainButton, C().Stroke, 1, 0.15)
 
@@ -838,7 +786,6 @@ addStroke(AutoSpeedMaintainButton, C().Stroke, 1, 0.15)
 --========================================================--
 
 local OutOfBoundsButton = Instance.new("TextButton")
-
 OutOfBoundsButton.Parent = MenuSettingsList
 OutOfBoundsButton.Size = UDim2.new(1, -4, 0, 42)
 OutOfBoundsButton.BackgroundColor3 = C().Surface
@@ -850,7 +797,6 @@ OutOfBoundsButton.Font = Enum.Font.GothamMedium
 OutOfBoundsButton.TextSize = 12
 OutOfBoundsButton.AutoButtonColor = false
 OutOfBoundsButton.ZIndex = 70
-
 addCorner(OutOfBoundsButton, 10)
 addStroke(OutOfBoundsButton, C().Stroke, 1, 0.15)
 
@@ -862,7 +808,6 @@ local OutOfBoundsDescription = createLabel(
     Enum.Font.Gotham,
     10
 )
-
 OutOfBoundsDescription.TextColor3 = C().SubText
 OutOfBoundsDescription.TextWrapped = true
 OutOfBoundsDescription.TextYAlignment = Enum.TextYAlignment.Top
@@ -876,7 +821,6 @@ local TransparencyTitle = createLabel(
     Enum.Font.GothamMedium,
     13
 )
-
 TransparencyTitle.TextColor3 = C().Text
 TransparencyTitle.ZIndex = 70
 
@@ -888,19 +832,16 @@ local TransparencyValue = createLabel(
     Enum.Font.GothamBold,
     12
 )
-
 TransparencyValue.TextColor3 = C().Accent
 TransparencyValue.TextXAlignment = Enum.TextXAlignment.Right
 TransparencyValue.ZIndex = 70
 
 local TransparencySlider = Instance.new("Frame")
-
 TransparencySlider.Parent = MenuSettingsList
 TransparencySlider.Size = UDim2.new(1, -4, 0, 38)
 TransparencySlider.BackgroundColor3 = C().Surface
 TransparencySlider.BorderSizePixel = 0
 TransparencySlider.ZIndex = 70
-
 addCorner(TransparencySlider, 10)
 
 local TransparencySliderStroke = addStroke(
@@ -911,18 +852,15 @@ local TransparencySliderStroke = addStroke(
 )
 
 local SliderTrack = Instance.new("Frame")
-
 SliderTrack.Parent = TransparencySlider
 SliderTrack.Size = UDim2.new(1, -32, 0, 6)
 SliderTrack.Position = UDim2.new(0, 16, 0.5, -3)
 SliderTrack.BackgroundColor3 = C().Surface2
 SliderTrack.BorderSizePixel = 0
 SliderTrack.ZIndex = 71
-
 addCorner(SliderTrack, 3)
 
 local SliderFill = Instance.new("Frame")
-
 SliderFill.Parent = SliderTrack
 SliderFill.Size = UDim2.new(
     dragTransparency / MAX_DRAG_TRANSPARENCY,
@@ -930,33 +868,27 @@ SliderFill.Size = UDim2.new(
     1,
     0
 )
-
 SliderFill.BackgroundColor3 = C().Accent
 SliderFill.BorderSizePixel = 0
 SliderFill.ZIndex = 72
-
 addCorner(SliderFill, 3)
 
 local SliderKnob = Instance.new("TextButton")
-
 SliderKnob.Parent = SliderTrack
 SliderKnob.Size = UDim2.fromOffset(24, 24)
 SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-
 SliderKnob.Position = UDim2.new(
     dragTransparency / MAX_DRAG_TRANSPARENCY,
     0,
     0.5,
     0
 )
-
 SliderKnob.BackgroundColor3 = C().Accent
 SliderKnob.BorderSizePixel = 0
 SliderKnob.Text = ""
 SliderKnob.AutoButtonColor = false
 SliderKnob.Active = true
 SliderKnob.ZIndex = 74
-
 addCorner(SliderKnob, 12)
 
 local TransparencyDescription = createLabel(
@@ -967,7 +899,6 @@ local TransparencyDescription = createLabel(
     Enum.Font.Gotham,
     10
 )
-
 TransparencyDescription.TextColor3 = C().SubText
 TransparencyDescription.TextWrapped = true
 TransparencyDescription.TextYAlignment = Enum.TextYAlignment.Top
@@ -989,8 +920,7 @@ local function updateTransparencySlider(inputX)
         1
     )
 
-    dragTransparency =
-        percent * MAX_DRAG_TRANSPARENCY
+    dragTransparency = percent * MAX_DRAG_TRANSPARENCY
 
     SliderFill.Size = UDim2.new(
         percent,
@@ -1084,6 +1014,7 @@ for _, button in ipairs({
     SpeedSettingsButton,
     WallHackSettingsButton,
     NicknamesButton,
+    HealthButton,
 
     AutoSpeedMaintainButton,
     OutOfBoundsButton,
@@ -1250,7 +1181,6 @@ local function setDragTransparency(rootFrame, enabled)
         end
 
         table.clear(dragTransparencyObjects)
-
         isDraggingMenu = false
     end
 end
@@ -1385,7 +1315,6 @@ TeleportHeaderFrame.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-
     if sliderDragging then
         if input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch
@@ -1398,11 +1327,9 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
     then
-
         sliderDragging = false
 
         if dragData.active then
@@ -1472,7 +1399,6 @@ local function closePanel(panel)
     closeTween.Completed:Connect(function()
         if panel then
             panel.Visible = false
-
             panel.Size =
                 UDim2.fromOffset(
                     PANEL_WIDTH,
@@ -1580,6 +1506,9 @@ local function applyTheme()
     NicknamesButton.BackgroundColor3 = t.Surface
     NicknamesButton.TextColor3 = showNicknames and t.Green or t.Text
 
+    HealthButton.BackgroundColor3 = t.Surface
+    HealthButton.TextColor3 = showHealth and t.Green or t.Text
+
     SpeedSettingsInput.BackgroundColor3 = t.Input
     SpeedSettingsInput.TextColor3 = t.Text
 
@@ -1646,6 +1575,36 @@ local function applyTheme()
         InfiniteJumpButton,
         isInfiniteJumpEnabled
     )
+
+    for _, gui in pairs(nicknameGuis) do
+        if gui and gui.Parent then
+            local holder = gui:FindFirstChild("Holder")
+            if holder then
+                local username = holder:FindFirstChild("Username")
+                local displayName = holder:FindFirstChild("DisplayName")
+                local healthBackground = holder:FindFirstChild("HealthBackground")
+                local healthFill = healthBackground and healthBackground:FindFirstChild("HealthFill")
+
+                holder.BackgroundColor3 = t.Background
+
+                if username then
+                    username.TextColor3 = t.Text
+                end
+
+                if displayName then
+                    displayName.TextColor3 = t.SubText
+                end
+
+                if healthBackground then
+                    healthBackground.BackgroundColor3 = t.Surface2
+                end
+
+                if healthFill then
+                    healthFill.BackgroundColor3 = t.Green
+                end
+            end
+        end
+    end
 end
 
 --========================================================--
@@ -1653,7 +1612,6 @@ end
 --========================================================--
 
 ThemeButton.MouseButton1Click:Connect(function()
-
     isDarkTheme = not isDarkTheme
 
     applyTheme()
@@ -1671,7 +1629,6 @@ end)
 --========================================================--
 
 ActivateButton.MouseButton1Click:Connect(function()
-
     FlyStatus.Text = "ЗАГРУЗКА..."
     FlyStatus.TextColor3 = C().Accent
 
@@ -1681,7 +1638,6 @@ ActivateButton.MouseButton1Click:Connect(function()
     )
 
     local success, result = pcall(function()
-
         local source = game:HttpGet(
             "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
         )
@@ -1696,7 +1652,6 @@ ActivateButton.MouseButton1Click:Connect(function()
     end)
 
     if success then
-
         FlyStatus.Text = "ЗАГРУЗИТЬ"
         FlyStatus.TextColor3 = C().SubText
 
@@ -1704,9 +1659,7 @@ ActivateButton.MouseButton1Click:Connect(function()
             "Fly успешно загружен",
             C().Green
         )
-
     else
-
         FlyStatus.Text = "ЗАГРУЗИТЬ"
         FlyStatus.TextColor3 = C().SubText
 
@@ -1727,7 +1680,6 @@ end)
 --========================================================--
 
 MenuSettingsButton.MouseButton1Click:Connect(function()
-
     savePosition()
 
     MenuFrame.Visible = false
@@ -1744,17 +1696,14 @@ MenuSettingsButton.MouseButton1Click:Connect(function()
 end)
 
 MenuSettingsCloseButton.MouseButton1Click:Connect(function()
-
     local pos =
         MenuSettingsPanel.Position
 
     closePanel(MenuSettingsPanel)
 
     task.delay(0.23, function()
-
         MenuFrame.Position = pos
         MenuFrame.Visible = true
-
         savePosition()
     end)
 
@@ -1769,7 +1718,6 @@ end)
 --========================================================--
 
 OutOfBoundsButton.MouseButton1Click:Connect(function()
-
     allowOutOfBounds =
         not allowOutOfBounds
 
@@ -1805,7 +1753,6 @@ end)
 local minimizedMouseStart = nil
 
 MinimizeButton.MouseButton1Click:Connect(function()
-
     HeaderFrame.Visible = false
     Content.Visible = false
 
@@ -1817,25 +1764,19 @@ MinimizeButton.MouseButton1Click:Connect(function()
 end)
 
 MinimizedContentLabel.InputBegan:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
     then
-
         minimizedMouseStart = input.Position
-
         beginDrag(MenuFrame, input)
     end
 end)
 
 MinimizedContentLabel.InputEnded:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
     then
-
         if minimizedMouseStart then
-
             local distance =
                 (
                     input.Position -
@@ -1843,7 +1784,6 @@ MinimizedContentLabel.InputEnded:Connect(function(input)
                 ).Magnitude
 
             if distance < 8 then
-
                 MinimizedContentLabel.Visible = false
                 HeaderFrame.Visible = true
                 Content.Visible = true
@@ -1869,7 +1809,6 @@ local isAutoSpeedMaintainEnabled = false
 local speedMaintainConnection = nil
 
 local function setSpeed(speed, notify)
-
     local character = LocalPlayer.Character
 
     local humanoid =
@@ -1877,14 +1816,12 @@ local function setSpeed(speed, notify)
         and character:FindFirstChildOfClass("Humanoid")
 
     if not humanoid then
-
         if notify then
             showNotification(
                 "Персонаж не найден",
                 C().Red
             )
         end
-
         return
     end
 
@@ -1899,7 +1836,6 @@ local function setSpeed(speed, notify)
 end
 
 local function maintainSpeed()
-
     if not isSpeedHackEnabled
         or not isAutoSpeedMaintainEnabled
     then
@@ -1913,7 +1849,6 @@ local function maintainSpeed()
         and character:FindFirstChildOfClass("Humanoid")
 
     if humanoid then
-
         local speed =
             tonumber(SpeedSettingsInput.Text)
             or DEFAULT_SPEED
@@ -1923,23 +1858,18 @@ local function maintainSpeed()
 end
 
 local function stopSpeedMaintain()
-
     if speedMaintainConnection then
-
         speedMaintainConnection:Disconnect()
-
         speedMaintainConnection = nil
     end
 end
 
 local function startSpeedMaintain()
-
     stopSpeedMaintain()
 
     if isSpeedHackEnabled
         and isAutoSpeedMaintainEnabled
     then
-
         speedMaintainConnection =
             RunService.Heartbeat:Connect(
                 maintainSpeed
@@ -1948,12 +1878,10 @@ local function startSpeedMaintain()
 end
 
 local function toggleSpeedHack()
-
     isSpeedHackEnabled =
         not isSpeedHackEnabled
 
     if isSpeedHackEnabled then
-
         local speed =
             tonumber(SpeedSettingsInput.Text)
             or DEFAULT_SPEED
@@ -1974,9 +1902,7 @@ local function toggleSpeedHack()
             SpeedHackButton,
             true
         )
-
     else
-
         setSpeed(
             DEFAULT_SPEED,
             true
@@ -2000,7 +1926,6 @@ SpeedHackButton.MouseButton1Click:Connect(
 --========================================================--
 
 SpeedSettingsButton.MouseButton1Click:Connect(function()
-
     openPanel(SpeedSettingsPanel)
 
     showNotification(
@@ -2010,7 +1935,6 @@ SpeedSettingsButton.MouseButton1Click:Connect(function()
 end)
 
 SpeedSettingsCloseButton.MouseButton1Click:Connect(function()
-
     closePanel(SpeedSettingsPanel)
 
     showNotification(
@@ -2020,7 +1944,6 @@ SpeedSettingsCloseButton.MouseButton1Click:Connect(function()
 end)
 
 SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
-
     if not enterPressed then
         return
     end
@@ -2029,7 +1952,6 @@ SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
         tonumber(SpeedSettingsInput.Text)
 
     if not speed then
-
         SpeedSettingsInput.Text =
             tostring(DEFAULT_SPEED)
 
@@ -2056,7 +1978,6 @@ SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
 end)
 
 AutoSpeedMaintainButton.MouseButton1Click:Connect(function()
-
     isAutoSpeedMaintainEnabled =
         not isAutoSpeedMaintainEnabled
 
@@ -2095,16 +2016,7 @@ end)
 -- WALLHACK SETTINGS
 --========================================================--
 
--- ВАЖНО:
--- Здесь поведение специально сделано таким же,
--- как у SpeedHack.
---
--- Главное меню НЕ скрывается.
--- Панель открывается через openPanel().
--- Пока внутри панели ничего нет.
-
 WallHackSettingsButton.MouseButton1Click:Connect(function()
-
     openPanel(WallHackSettingsPanel)
 
     showNotification(
@@ -2114,7 +2026,6 @@ WallHackSettingsButton.MouseButton1Click:Connect(function()
 end)
 
 WallHackSettingsCloseButton.MouseButton1Click:Connect(function()
-
     closePanel(WallHackSettingsPanel)
 
     showNotification(
@@ -2130,12 +2041,10 @@ end)
 local infiniteJumpConnection = nil
 
 local function toggleInfiniteJump()
-
     isInfiniteJumpEnabled =
         not isInfiniteJumpEnabled
 
     if isInfiniteJumpEnabled then
-
         if infiniteJumpConnection then
             infiniteJumpConnection:Disconnect()
         end
@@ -2143,7 +2052,6 @@ local function toggleInfiniteJump()
         infiniteJumpConnection =
             UserInputService.JumpRequest:Connect(
                 function()
-
                     local character =
                         LocalPlayer.Character
 
@@ -2154,7 +2062,6 @@ local function toggleInfiniteJump()
                         )
 
                     if humanoid then
-
                         humanoid:ChangeState(
                             Enum.HumanoidStateType.Jumping
                         )
@@ -2171,13 +2078,9 @@ local function toggleInfiniteJump()
             "Бесконечный прыжок включён",
             C().Green
         )
-
     else
-
         if infiniteJumpConnection then
-
             infiniteJumpConnection:Disconnect()
-
             infiniteJumpConnection = nil
         end
 
@@ -2204,11 +2107,8 @@ InfiniteJumpButton.MouseButton1Click:Connect(
 local noclipConnection = nil
 
 local function setNoclip(enabled)
-
     if noclipConnection then
-
         noclipConnection:Disconnect()
-
         noclipConnection = nil
     end
 
@@ -2220,11 +2120,9 @@ local function setNoclip(enabled)
     end
 
     if enabled then
-
         noclipConnection =
             RunService.Stepped:Connect(
                 function()
-
                     local currentCharacter =
                         LocalPlayer.Character
 
@@ -2235,22 +2133,17 @@ local function setNoclip(enabled)
                     for _, part in ipairs(
                         currentCharacter:GetDescendants()
                     ) do
-
                         if part:IsA("BasePart") then
                             part.CanCollide = false
                         end
                     end
                 end
             )
-
     else
-
         for _, part in ipairs(
             character:GetDescendants()
         ) do
-
             if part:IsA("BasePart") then
-
                 if part.Name ~= "HumanoidRootPart" then
                     part.CanCollide = true
                 end
@@ -2260,7 +2153,6 @@ local function setNoclip(enabled)
 end
 
 local function toggleNoclip()
-
     isNoclipEnabled =
         not isNoclipEnabled
 
@@ -2286,14 +2178,148 @@ NoclipButton.MouseButton1Click:Connect(
     toggleNoclip
 )
 
-
 --========================================================--
--- NICKNAME SYSTEM
+-- NICKNAME / HEALTH SYSTEM
 --========================================================--
 
 local nicknameGuis = {}
+local healthConnections = {}
+
+local function disconnectHealthConnection(player)
+    local connection = healthConnections[player]
+
+    if connection then
+        connection:Disconnect()
+        healthConnections[player] = nil
+    end
+end
+
+local function getHealthColor(percent)
+    percent = math.clamp(percent, 0, 1)
+
+    if percent <= 0.25 then
+        return C().Red
+    elseif percent <= 0.55 then
+        return Color3.fromRGB(245, 180, 70)
+    else
+        return C().Green
+    end
+end
+
+local function updateNicknameHealth(player)
+    if not showHealth then
+        return
+    end
+
+    local gui = nicknameGuis[player]
+
+    if not gui or not gui.Parent then
+        return
+    end
+
+    local holder = gui:FindFirstChild("Holder")
+
+    if not holder then
+        return
+    end
+
+    local healthBackground =
+        holder:FindFirstChild("HealthBackground")
+
+    local healthFill =
+        healthBackground
+        and healthBackground:FindFirstChild("HealthFill")
+
+    local healthText =
+        holder:FindFirstChild("HealthText")
+
+    local character = player.Character
+
+    local humanoid =
+        character
+        and character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid
+        or humanoid.MaxHealth <= 0
+    then
+        if healthBackground then
+            healthBackground.Visible = false
+        end
+
+        if healthText then
+            healthText.Visible = false
+        end
+
+        return
+    end
+
+    local percent =
+        math.clamp(
+            humanoid.Health / humanoid.MaxHealth,
+            0,
+            1
+        )
+
+    if healthBackground then
+        healthBackground.Visible = true
+    end
+
+    if healthText then
+        healthText.Visible = true
+        healthText.Text =
+            tostring(math.floor(humanoid.Health + 0.5))
+            .. " HP"
+        healthText.TextColor3 =
+            getHealthColor(percent)
+    end
+
+    if healthFill then
+        healthFill.BackgroundColor3 =
+            getHealthColor(percent)
+
+        healthFill.Size =
+            UDim2.new(
+                percent,
+                0,
+                1,
+                0
+            )
+    end
+end
+
+local function connectNicknameHealth(player)
+    disconnectHealthConnection(player)
+
+    if not showHealth then
+        return
+    end
+
+    local character = player.Character
+
+    if not character then
+        return
+    end
+
+    local humanoid =
+        character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+        return
+    end
+
+    healthConnections[player] =
+        humanoid.HealthChanged:Connect(
+            function()
+                updateNicknameHealth(player)
+            end
+        )
+
+    updateNicknameHealth(player)
+end
 
 local function removeNickname(player)
+    disconnectHealthConnection(player)
+
     local gui = nicknameGuis[player]
 
     if gui then
@@ -2304,7 +2330,8 @@ local function removeNickname(player)
     local character = player.Character
 
     if character then
-        local old = character:FindFirstChild("MedaNickname")
+        local old =
+            character:FindFirstChild("MedaNickname")
 
         if old then
             old:Destroy()
@@ -2325,26 +2352,27 @@ local function createNickname(player)
         return
     end
 
-    local head = character:FindFirstChild("Head")
+    local head =
+        character:FindFirstChild("Head")
 
     if not head then
         return
     end
 
     local gui = Instance.new("BillboardGui")
-
     gui.Name = "MedaNickname"
     gui.Adornee = head
     gui.Parent = character
     gui.AlwaysOnTop = true
     gui.MaxDistance = nicknameDistance
 
-    -- Фиксированный размер: при удалении текст не увеличивается.
-    gui.Size = UDim2.fromOffset(180, 42)
+    -- Немного увеличили ширину, чтобы HP выглядело компактно
+    -- и не раздувало сам блок.
+    gui.Size = UDim2.fromOffset(220, 50)
     gui.StudsOffset = Vector3.new(0, 2.8, 0)
 
     local holder = Instance.new("Frame")
-
+    holder.Name = "Holder"
     holder.Parent = gui
     holder.Size = UDim2.fromScale(1, 1)
     holder.BackgroundColor3 = C().Background
@@ -2355,7 +2383,6 @@ local function createNickname(player)
     addStroke(holder, C().Accent, 1, 0.15)
 
     local glow = Instance.new("Frame")
-
     glow.Parent = holder
     glow.Size = UDim2.new(1, 6, 1, 6)
     glow.Position = UDim2.fromOffset(-3, -3)
@@ -2363,18 +2390,17 @@ local function createNickname(player)
     glow.BackgroundTransparency = 0.88
     glow.BorderSizePixel = 0
     glow.ZIndex = 0
-
     addCorner(glow, 11)
 
     local username = createLabel(
         holder,
         "@" .. player.Name,
-        UDim2.new(1, -18, 0, 19),
+        UDim2.new(1, -18, 0, 17),
         UDim2.fromOffset(12, 3),
         Enum.Font.GothamBold,
         11
     )
-
+    username.Name = "Username"
     username.TextColor3 = C().Text
     username.TextTruncate = Enum.TextTruncate.AtEnd
     username.ZIndex = 2
@@ -2382,17 +2408,59 @@ local function createNickname(player)
     local displayName = createLabel(
         holder,
         player.DisplayName,
-        UDim2.new(1, -18, 0, 16),
-        UDim2.fromOffset(12, 22),
+        UDim2.new(1, -18, 0, 15),
+        UDim2.fromOffset(12, 20),
         Enum.Font.GothamMedium,
         9
     )
-
+    displayName.Name = "DisplayName"
     displayName.TextColor3 = C().SubText
     displayName.TextTruncate = Enum.TextTruncate.AtEnd
     displayName.ZIndex = 2
 
+    --====================================================--
+    -- COMPACT HEALTH BAR
+    --====================================================--
+
+    local healthBackground = Instance.new("Frame")
+    healthBackground.Name = "HealthBackground"
+    healthBackground.Parent = holder
+    healthBackground.Size = UDim2.new(1, -70, 0, 6)
+    healthBackground.Position = UDim2.fromOffset(12, 39)
+    healthBackground.BackgroundColor3 = C().Surface2
+    healthBackground.BorderSizePixel = 0
+    healthBackground.Visible = showHealth
+    healthBackground.ZIndex = 3
+    addCorner(healthBackground, 3)
+
+    local healthFill = Instance.new("Frame")
+    healthFill.Name = "HealthFill"
+    healthFill.Parent = healthBackground
+    healthFill.Size = UDim2.new(1, 0, 1, 0)
+    healthFill.BackgroundColor3 = C().Green
+    healthFill.BorderSizePixel = 0
+    healthFill.ZIndex = 4
+    addCorner(healthFill, 3)
+
+    local healthText = createLabel(
+        holder,
+        "100 HP",
+        UDim2.fromOffset(48, 16),
+        UDim2.new(1, -58, 0, 34),
+        Enum.Font.GothamBold,
+        8
+    )
+    healthText.Name = "HealthText"
+    healthText.TextXAlignment = Enum.TextXAlignment.Right
+    healthText.TextColor3 = C().Green
+    healthText.Visible = showHealth
+    healthText.ZIndex = 4
+
     nicknameGuis[player] = gui
+
+    if showHealth then
+        connectNicknameHealth(player)
+    end
 end
 
 local function refreshNicknames()
@@ -2411,19 +2479,103 @@ NicknamesButton.MouseButton1Click:Connect(function()
     showNicknames = not showNicknames
 
     if showNicknames then
-        NicknamesButton.Text = "Показывать никнеймы       ВКЛ"
+        NicknamesButton.Text =
+            "Показывать никнеймы       ВКЛ"
         NicknamesButton.TextColor3 = C().Green
     else
-        NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
+        NicknamesButton.Text =
+            "Показывать никнеймы       ВЫКЛ"
         NicknamesButton.TextColor3 = C().Text
     end
 
     refreshNicknames()
 
     showNotification(
-        showNicknames and "Никнеймы включены" or "Никнеймы выключены",
-        showNicknames and C().Green or C().Red
+        showNicknames
+            and "Никнеймы включены"
+            or "Никнеймы выключены",
+        showNicknames
+            and C().Green
+            or C().Red
     )
+end)
+
+--========================================================--
+-- HEALTH TOGGLE
+--========================================================--
+
+HealthButton.MouseButton1Click:Connect(function()
+    showHealth = not showHealth
+
+    if showHealth then
+        HealthButton.Text =
+            "Показывать здоровье       ВКЛ"
+        HealthButton.TextColor3 = C().Green
+
+        for player, gui in pairs(nicknameGuis) do
+            if gui and gui.Parent then
+                local holder = gui:FindFirstChild("Holder")
+
+                if holder then
+                    local healthBackground =
+                        holder:FindFirstChild("HealthBackground")
+
+                    local healthText =
+                        holder:FindFirstChild("HealthText")
+
+                    if healthBackground then
+                        healthBackground.Visible = true
+                    end
+
+                    if healthText then
+                        healthText.Visible = true
+                    end
+                end
+            end
+
+            if showNicknames and isWallHackEnabled then
+                connectNicknameHealth(player)
+            end
+        end
+
+        showNotification(
+            "Показ здоровья включён",
+            C().Green
+        )
+    else
+        HealthButton.Text =
+            "Показывать здоровье       ВЫКЛ"
+        HealthButton.TextColor3 = C().Text
+
+        for player, gui in pairs(nicknameGuis) do
+            disconnectHealthConnection(player)
+
+            if gui and gui.Parent then
+                local holder = gui:FindFirstChild("Holder")
+
+                if holder then
+                    local healthBackground =
+                        holder:FindFirstChild("HealthBackground")
+
+                    local healthText =
+                        holder:FindFirstChild("HealthText")
+
+                    if healthBackground then
+                        healthBackground.Visible = false
+                    end
+
+                    if healthText then
+                        healthText.Visible = false
+                    end
+                end
+            end
+        end
+
+        showNotification(
+            "Показ здоровья выключен",
+            C().Red
+        )
+    end
 end)
 
 Players.PlayerAdded:Connect(function(player)
@@ -2447,20 +2599,16 @@ end)
 local highlights = {}
 
 local function removeHighlight(player)
-
     local highlight =
         highlights[player]
 
     if highlight then
-
         highlight:Destroy()
-
         highlights[player] = nil
     end
 end
 
 local function applyHighlight(player)
-
     if player == LocalPlayer then
         return
     end
@@ -2494,13 +2642,10 @@ local function applyHighlight(player)
 end
 
 local function refreshHighlights()
-
     for _, player in ipairs(
         Players:GetPlayers()
     ) do
-
         if player ~= LocalPlayer then
-
             if isWallHackEnabled then
                 applyHighlight(player)
             else
@@ -2511,12 +2656,10 @@ local function refreshHighlights()
 end
 
 local function toggleWallHack()
-
     isWallHackEnabled =
         not isWallHackEnabled
 
     if isWallHackEnabled then
-
         refreshHighlights()
 
         setFeatureState(
@@ -2529,8 +2672,10 @@ local function toggleWallHack()
             C().Green
         )
 
+        if showNicknames then
+            refreshNicknames()
+        end
     else
-
         for player in pairs(highlights) do
             removeHighlight(player)
         end
@@ -2539,6 +2684,9 @@ local function toggleWallHack()
             WallHackButton,
             false
         )
+
+        -- Никнеймы и HP завязаны на состояние WallHack.
+        refreshNicknames()
 
         showNotification(
             "WallHack выключен",
@@ -2552,13 +2700,15 @@ WallHackButton.MouseButton1Click:Connect(
 )
 
 Players.PlayerAdded:Connect(function(player)
-
     player.CharacterAdded:Connect(function()
-
         task.wait(0.5)
 
         if isWallHackEnabled then
             applyHighlight(player)
+        end
+
+        if isWallHackEnabled and showNicknames then
+            createNickname(player)
         end
     end)
 end)
@@ -2570,27 +2720,27 @@ end)
 for _, player in ipairs(
     Players:GetPlayers()
 ) do
-
     if player ~= LocalPlayer then
-
         player.CharacterAdded:Connect(function()
-
             task.wait(0.5)
 
             if isWallHackEnabled then
                 applyHighlight(player)
+            end
+
+            if isWallHackEnabled and showNicknames then
+                createNickname(player)
             end
         end)
     end
 end
 
 -- Keep nicknames synchronized with WallHack state.
-local _originalWallHackStateConnection
 task.spawn(function()
     while true do
         task.wait(0.25)
 
-        if showNicknames then
+        if showNicknames and isWallHackEnabled then
             refreshNicknames()
         end
     end
@@ -2603,7 +2753,6 @@ end)
 local playerButtons = {}
 
 local function createPlayerButton(player)
-
     local button =
         Instance.new("TextButton")
 
@@ -2701,11 +2850,9 @@ local function createPlayerButton(player)
 end
 
 local function updatePlayerList()
-
     for _, button in ipairs(
         playerButtons
     ) do
-
         if button then
             button:Destroy()
         end
@@ -2716,9 +2863,7 @@ local function updatePlayerList()
     for _, player in ipairs(
         Players:GetPlayers()
     ) do
-
         if player ~= LocalPlayer then
-
             local button =
                 createPlayerButton(player)
 
@@ -2728,7 +2873,6 @@ local function updatePlayerList()
 
             button.MouseButton1Click:Connect(
                 function()
-
                     local myCharacter =
                         LocalPlayer.Character
 
@@ -2748,7 +2892,6 @@ local function updatePlayerList()
                         )
 
                     if myRoot and targetRoot then
-
                         myRoot.CFrame =
                             targetRoot.CFrame
                             + Vector3.new(
@@ -2762,9 +2905,7 @@ local function updatePlayerList()
                                 .. player.Name,
                             C().Green
                         )
-
                     else
-
                         showNotification(
                             "Игрок недоступен",
                             C().Red
@@ -2783,7 +2924,6 @@ end
 
 TeleportButton.MouseButton1Click:Connect(
     function()
-
         updatePlayerList()
 
         openPanel(TeleportPanel)
@@ -2803,7 +2943,6 @@ TeleportCloseButton.MouseButton1Click:Connect(
 
 Players.PlayerAdded:Connect(
     function()
-
         if TeleportPanel.Visible then
             updatePlayerList()
         end
@@ -2812,7 +2951,6 @@ Players.PlayerAdded:Connect(
 
 Players.PlayerRemoving:Connect(
     function()
-
         if TeleportPanel.Visible then
             updatePlayerList()
         end
@@ -2825,11 +2963,9 @@ Players.PlayerRemoving:Connect(
 
 LocalPlayer.CharacterAdded:Connect(
     function()
-
         task.wait(0.5)
 
         if isSpeedHackEnabled then
-
             local speed =
                 tonumber(
                     SpeedSettingsInput.Text
@@ -2876,8 +3012,14 @@ setFeatureState(
 
 FlyStatus.Text = "ЗАГРУЗИТЬ"
 FlyStatus.TextColor3 = C().SubText
-NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
+
+NicknamesButton.Text =
+    "Показывать никнеймы       ВЫКЛ"
 NicknamesButton.TextColor3 = C().Text
+
+HealthButton.Text =
+    "Показывать здоровье       ВЫКЛ"
+HealthButton.TextColor3 = C().Text
 
 OutOfBoundsButton.Text =
     "Перемещение за границы экрана       ВЫКЛ"
