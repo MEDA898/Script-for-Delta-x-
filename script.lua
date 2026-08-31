@@ -738,6 +738,41 @@ WallHackSettingsCloseButton,
 WallHackSettingsList =
     createPanel("WallHackSettingsPanel", "◈  НАСТРОЙКИ WALLHACK")
 
+--========================================================--
+-- NICKNAMES
+--========================================================--
+
+local showNicknames = false
+local nicknameDistance = 500
+
+local NicknamesButton = Instance.new("TextButton")
+
+NicknamesButton.Parent = WallHackSettingsList
+NicknamesButton.Size = UDim2.new(1, -4, 0, 43)
+NicknamesButton.BackgroundColor3 = C().Surface
+NicknamesButton.BorderSizePixel = 0
+NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
+NicknamesButton.TextColor3 = C().Text
+NicknamesButton.Font = Enum.Font.GothamMedium
+NicknamesButton.TextSize = 12
+NicknamesButton.AutoButtonColor = false
+NicknamesButton.ZIndex = 70
+
+addCorner(NicknamesButton, 10)
+addStroke(NicknamesButton, C().Stroke, 1, 0.15)
+
+local NicknamesInfo = createLabel(
+    WallHackSettingsList,
+    "Username сверху • Display Name снизу",
+    UDim2.new(1, -4, 0, 22),
+    UDim2.fromOffset(0, 0),
+    Enum.Font.Gotham,
+    10
+)
+
+NicknamesInfo.TextColor3 = C().SubText
+NicknamesInfo.ZIndex = 70
+
 local MenuSettingsPanel,
 MenuSettingsHeaderFrame,
 MenuSettingsCloseButton,
@@ -1048,6 +1083,7 @@ for _, button in ipairs({
 
     SpeedSettingsButton,
     WallHackSettingsButton,
+    NicknamesButton,
 
     AutoSpeedMaintainButton,
     OutOfBoundsButton,
@@ -1540,6 +1576,9 @@ local function applyTheme()
 
     WallHackSettingsButton.BackgroundColor3 = t.Surface2
     WallHackSettingsButton.TextColor3 = t.SubText
+
+    NicknamesButton.BackgroundColor3 = t.Surface
+    NicknamesButton.TextColor3 = showNicknames and t.Green or t.Text
 
     SpeedSettingsInput.BackgroundColor3 = t.Input
     SpeedSettingsInput.TextColor3 = t.Text
@@ -2247,6 +2286,160 @@ NoclipButton.MouseButton1Click:Connect(
     toggleNoclip
 )
 
+
+--========================================================--
+-- NICKNAME SYSTEM
+--========================================================--
+
+local nicknameGuis = {}
+
+local function removeNickname(player)
+    local gui = nicknameGuis[player]
+
+    if gui then
+        gui:Destroy()
+        nicknameGuis[player] = nil
+    end
+
+    local character = player.Character
+
+    if character then
+        local old = character:FindFirstChild("MedaNickname")
+
+        if old then
+            old:Destroy()
+        end
+    end
+end
+
+local function createNickname(player)
+    if player == LocalPlayer then
+        return
+    end
+
+    removeNickname(player)
+
+    local character = player.Character
+
+    if not character then
+        return
+    end
+
+    local head = character:FindFirstChild("Head")
+
+    if not head then
+        return
+    end
+
+    local gui = Instance.new("BillboardGui")
+
+    gui.Name = "MedaNickname"
+    gui.Adornee = head
+    gui.Parent = character
+    gui.AlwaysOnTop = true
+    gui.MaxDistance = nicknameDistance
+
+    -- Фиксированный размер: при удалении текст не увеличивается.
+    gui.Size = UDim2.fromOffset(180, 42)
+    gui.StudsOffset = Vector3.new(0, 2.8, 0)
+
+    local holder = Instance.new("Frame")
+
+    holder.Parent = gui
+    holder.Size = UDim2.fromScale(1, 1)
+    holder.BackgroundColor3 = C().Background
+    holder.BackgroundTransparency = 0.12
+    holder.BorderSizePixel = 0
+
+    addCorner(holder, 9)
+    addStroke(holder, C().Accent, 1, 0.15)
+
+    local glow = Instance.new("Frame")
+
+    glow.Parent = holder
+    glow.Size = UDim2.new(1, 6, 1, 6)
+    glow.Position = UDim2.fromOffset(-3, -3)
+    glow.BackgroundColor3 = C().Accent
+    glow.BackgroundTransparency = 0.88
+    glow.BorderSizePixel = 0
+    glow.ZIndex = 0
+
+    addCorner(glow, 11)
+
+    local username = createLabel(
+        holder,
+        "@" .. player.Name,
+        UDim2.new(1, -18, 0, 19),
+        UDim2.fromOffset(12, 3),
+        Enum.Font.GothamBold,
+        11
+    )
+
+    username.TextColor3 = C().Text
+    username.TextTruncate = Enum.TextTruncate.AtEnd
+    username.ZIndex = 2
+
+    local displayName = createLabel(
+        holder,
+        player.DisplayName,
+        UDim2.new(1, -18, 0, 16),
+        UDim2.fromOffset(12, 22),
+        Enum.Font.GothamMedium,
+        9
+    )
+
+    displayName.TextColor3 = C().SubText
+    displayName.TextTruncate = Enum.TextTruncate.AtEnd
+    displayName.ZIndex = 2
+
+    nicknameGuis[player] = gui
+end
+
+local function refreshNicknames()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if showNicknames and isWallHackEnabled then
+                createNickname(player)
+            else
+                removeNickname(player)
+            end
+        end
+    end
+end
+
+NicknamesButton.MouseButton1Click:Connect(function()
+    showNicknames = not showNicknames
+
+    if showNicknames then
+        NicknamesButton.Text = "Показывать никнеймы       ВКЛ"
+        NicknamesButton.TextColor3 = C().Green
+    else
+        NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
+        NicknamesButton.TextColor3 = C().Text
+    end
+
+    refreshNicknames()
+
+    showNotification(
+        showNicknames and "Никнеймы включены" or "Никнеймы выключены",
+        showNicknames and C().Green or C().Red
+    )
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+
+        if showNicknames and isWallHackEnabled then
+            createNickname(player)
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeNickname(player)
+end)
+
 --========================================================--
 -- WALLHACK
 --========================================================--
@@ -2390,6 +2583,18 @@ for _, player in ipairs(
         end)
     end
 end
+
+-- Keep nicknames synchronized with WallHack state.
+local _originalWallHackStateConnection
+task.spawn(function()
+    while true do
+        task.wait(0.25)
+
+        if showNicknames then
+            refreshNicknames()
+        end
+    end
+end)
 
 --========================================================--
 -- TELEPORT
@@ -2671,6 +2876,8 @@ setFeatureState(
 
 FlyStatus.Text = "ЗАГРУЗИТЬ"
 FlyStatus.TextColor3 = C().SubText
+NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
+NicknamesButton.TextColor3 = C().Text
 
 OutOfBoundsButton.Text =
     "Перемещение за границы экрана       ВЫКЛ"
