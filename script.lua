@@ -18,7 +18,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 --========================================================--
 
 local MENU_WIDTH = 440
-local MENU_HEIGHT = 340
+local MENU_HEIGHT = 370
 
 local PANEL_WIDTH = 300
 local PANEL_HEIGHT = 340
@@ -63,6 +63,7 @@ local Dark = {
 
     Green = Color3.fromRGB(45, 210, 125),
     Red = Color3.fromRGB(235, 70, 85),
+    Orange = Color3.fromRGB(245, 180, 70),
 
     Input = Color3.fromRGB(18, 21, 29)
 }
@@ -84,6 +85,7 @@ local Light = {
 
     Green = Color3.fromRGB(40, 175, 105),
     Red = Color3.fromRGB(220, 60, 75),
+    Orange = Color3.fromRGB(220, 150, 55),
 
     Input = Color3.fromRGB(242, 243, 247)
 }
@@ -376,11 +378,16 @@ CloseButton.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
 -- CONTENT
 --========================================================--
 
-local Content = Instance.new("Frame")
+local Content = Instance.new("ScrollingFrame")
 Content.Parent = MenuFrame
 Content.Size = UDim2.new(1, -30, 1, -84)
 Content.Position = UDim2.fromOffset(15, 77)
 Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 3
+Content.ScrollBarImageColor3 = C().Accent
+Content.ScrollingDirection = Enum.ScrollingDirection.Y
+Content.CanvasSize = UDim2.fromOffset(0, 310)
 Content.ZIndex = 11
 
 local SectionTitle = createLabel(
@@ -486,6 +493,56 @@ local InfiniteJumpButton, JumpStatus =
 
 local TeleportButton, TeleportStatus =
     createFeatureButton("Teleport", "◎", 212, 163)
+
+--========================================================--
+-- CHECKPOINTS ENTRY
+--========================================================--
+
+local CheckpointButton = Instance.new("TextButton")
+CheckpointButton.Parent = Content
+CheckpointButton.Size = UDim2.new(1, 0, 0, 58)
+CheckpointButton.Position = UDim2.fromOffset(0, 230)
+CheckpointButton.BackgroundColor3 = C().Surface
+CheckpointButton.BorderSizePixel = 0
+CheckpointButton.Text = ""
+CheckpointButton.AutoButtonColor = false
+CheckpointButton.ZIndex = 12
+addCorner(CheckpointButton, 11)
+addStroke(CheckpointButton, C().Stroke, 1, 0.2)
+
+local CheckpointIcon = Instance.new("Frame")
+CheckpointIcon.Parent = CheckpointButton
+CheckpointIcon.Size = UDim2.fromOffset(36, 36)
+CheckpointIcon.Position = UDim2.fromOffset(10, 11)
+CheckpointIcon.BackgroundColor3 = C().Surface2
+CheckpointIcon.BorderSizePixel = 0
+CheckpointIcon.ZIndex = 13
+addCorner(CheckpointIcon, 9)
+local CheckpointIconText = createLabel(CheckpointIcon,"⌖",UDim2.fromScale(1,1),UDim2.fromScale(0,0),Enum.Font.GothamBold,18)
+CheckpointIconText.TextXAlignment = Enum.TextXAlignment.Center
+CheckpointIconText.TextColor3 = C().Accent
+CheckpointIconText.ZIndex = 14
+local CheckpointTitle = createLabel(CheckpointButton,"Чекпоинты",UDim2.fromOffset(210,21),UDim2.fromOffset(56,8),Enum.Font.GothamBold,12)
+CheckpointTitle.ZIndex = 14
+local CheckpointStatus = createLabel(CheckpointButton,"Открыть маршрут",UDim2.fromOffset(220,18),UDim2.fromOffset(56,31),Enum.Font.Gotham,10)
+CheckpointStatus.TextColor3 = C().SubText
+CheckpointStatus.ZIndex = 14
+local CheckpointSwitch = Instance.new("Frame")
+CheckpointSwitch.Parent = CheckpointButton
+CheckpointSwitch.Size = UDim2.fromOffset(46,24)
+CheckpointSwitch.Position = UDim2.new(1,-58,0,17)
+CheckpointSwitch.BackgroundColor3 = C().Surface2
+CheckpointSwitch.BorderSizePixel = 0
+CheckpointSwitch.ZIndex = 15
+addCorner(CheckpointSwitch,12)
+local CheckpointSwitchDot = Instance.new("Frame")
+CheckpointSwitchDot.Parent = CheckpointSwitch
+CheckpointSwitchDot.Size = UDim2.fromOffset(18,18)
+CheckpointSwitchDot.Position = UDim2.fromOffset(3,3)
+CheckpointSwitchDot.BackgroundColor3 = C().SubText
+CheckpointSwitchDot.BorderSizePixel = 0
+CheckpointSwitchDot.ZIndex = 16
+addCorner(CheckpointSwitchDot,9)
 
 FlyStatus.Text = "ЗАГРУЗИТЬ"
 FlyStatus.TextColor3 = C().SubText
@@ -732,6 +789,9 @@ MenuSettingsCloseButton,
 MenuSettingsList =
     createPanel("MenuSettingsPanel", "⚙  НАСТРОЙКИ МЕНЮ")
 
+local CheckpointPanel, CheckpointHeaderFrame, CheckpointCloseButton, CheckpointList =
+    createPanel("CheckpointPanel", "⌖  ЧЕКПОИНТЫ")
+
 --========================================================--
 -- SPEED INPUT
 --========================================================--
@@ -904,6 +964,79 @@ TransparencyDescription.TextWrapped = true
 TransparencyDescription.TextYAlignment = Enum.TextYAlignment.Top
 TransparencyDescription.ZIndex = 70
 
+local openPanel
+local closePanel
+
+--========================================================--
+-- CHECKPOINTS
+--========================================================--
+
+local checkpoints = {}
+local checkpointRouteRunning = false
+local checkpointCurrentIndex = 1
+local checkpointRouteSpeed = 16
+local checkpointFolder = Instance.new("Folder")
+checkpointFolder.Name = "MedaCheckpoints"
+checkpointFolder.Parent = workspace
+
+local function createCheckpointAction(text)
+    local b=Instance.new("TextButton")
+    b.Parent=CheckpointList; b.Size=UDim2.new(1,-4,0,43); b.BackgroundColor3=C().Surface; b.BorderSizePixel=0
+    b.Text=text; b.TextColor3=C().Text; b.Font=Enum.Font.GothamBold; b.TextSize=11; b.AutoButtonColor=false; b.ZIndex=70
+    addCorner(b,10); addStroke(b,C().Stroke,1,0.15); return b
+end
+local CheckpointInfo=createLabel(CheckpointList,"Сохраняй позиции и запускай маршрут по кругу.",UDim2.new(1,-4,0,34),UDim2.fromOffset(0,0),Enum.Font.Gotham,10)
+CheckpointInfo.TextColor3=C().SubText; CheckpointInfo.TextWrapped=true; CheckpointInfo.ZIndex=70
+local CheckpointCountLabel=createLabel(CheckpointList,"Точек: 0",UDim2.new(1,-4,0,25),UDim2.fromOffset(0,0),Enum.Font.GothamBold,12)
+CheckpointCountLabel.TextColor3=C().Accent; CheckpointCountLabel.ZIndex=70
+local CheckpointAddButton=createCheckpointAction("+  ДОБАВИТЬ ТОЧКУ")
+local CheckpointStartButton=createCheckpointAction("▶  ЗАПУСТИТЬ МАРШРУТ")
+local CheckpointDeleteButton=createCheckpointAction("−  УДАЛИТЬ ПОСЛЕДНЮЮ")
+local CheckpointClearButton=createCheckpointAction("⌫  ОЧИСТИТЬ ВСЕ")
+local CheckpointSpeedTitle=createLabel(CheckpointList,"СКОРОСТЬ МАРШРУТА",UDim2.new(1,-4,0,22),UDim2.fromOffset(0,0),Enum.Font.GothamBold,10)
+CheckpointSpeedTitle.TextColor3=C().SubText; CheckpointSpeedTitle.ZIndex=70
+local CheckpointSpeedInput=Instance.new("TextBox")
+CheckpointSpeedInput.Parent=CheckpointList; CheckpointSpeedInput.Size=UDim2.new(1,-4,0,43); CheckpointSpeedInput.BackgroundColor3=C().Input; CheckpointSpeedInput.BorderSizePixel=0
+CheckpointSpeedInput.Text="16"; CheckpointSpeedInput.PlaceholderText="16 или inf"; CheckpointSpeedInput.PlaceholderColor3=C().SubText; CheckpointSpeedInput.TextColor3=C().Text; CheckpointSpeedInput.Font=Enum.Font.GothamMedium; CheckpointSpeedInput.TextSize=13; CheckpointSpeedInput.ClearTextOnFocus=false; CheckpointSpeedInput.ZIndex=70
+addCorner(CheckpointSpeedInput,10); addStroke(CheckpointSpeedInput,C().Stroke,1,0.15)
+local CheckpointSpeedHint=createLabel(CheckpointList,"1+ studs/sec • inf = мгновенное перемещение",UDim2.new(1,-4,0,25),UDim2.fromOffset(0,0),Enum.Font.Gotham,9)
+CheckpointSpeedHint.TextColor3=C().SubText; CheckpointSpeedHint.ZIndex=70
+
+local function checkpointRoot() local c=LocalPlayer.Character; return c and c:FindFirstChild("HumanoidRootPart") end
+local function updateCheckpointUI()
+    local n=#checkpoints; CheckpointCountLabel.Text="Точек: "..n
+    CheckpointStatus.Text = n==0 and "Открыть маршрут" or (n==1 and "1 точка" or (n.." точек"))
+    CheckpointSwitch.BackgroundColor3=checkpointRouteRunning and C().Green or C().Surface2
+    CheckpointSwitchDot.BackgroundColor3=checkpointRouteRunning and Color3.new(1,1,1) or C().SubText
+    CheckpointSwitchDot.Position=checkpointRouteRunning and UDim2.fromOffset(25,3) or UDim2.fromOffset(3,3)
+    CheckpointStartButton.Text=checkpointRouteRunning and "■  ОСТАНОВИТЬ МАРШРУТ" or "▶  ЗАПУСТИТЬ МАРШРУТ"
+end
+local function createCheckpointMarker(index,pos)
+    local m=Instance.new("Model"); m.Name="Checkpoint_"..index; m.Parent=checkpointFolder
+    local p=Instance.new("Part"); p.Name="Marker"; p.Size=Vector3.new(3.5,.25,3.5); p.Position=pos-Vector3.new(0,2.7,0); p.Anchored=true; p.CanCollide=false; p.CanTouch=false; p.CanQuery=false; p.Material=Enum.Material.Neon; p.Color=C().Accent; p.Transparency=.15; p.Shape=Enum.PartType.Cylinder; p.Parent=m
+    local b=Instance.new("Part"); b.Name="Beacon"; b.Size=Vector3.new(.18,5,.18); b.Position=pos-Vector3.new(0,.1,0); b.Anchored=true; b.CanCollide=false; b.CanTouch=false; b.CanQuery=false; b.Material=Enum.Material.Neon; b.Color=C().Accent; b.Transparency=.35; b.Parent=m
+    local bg=Instance.new("BillboardGui"); bg.Name="Label"; bg.Adornee=b; bg.Size=UDim2.fromOffset(140,38); bg.StudsOffset=Vector3.new(0,2.9,0); bg.AlwaysOnTop=true; bg.MaxDistance=10000; bg.Parent=m
+    local h=Instance.new("Frame"); h.Size=UDim2.fromScale(1,1); h.BackgroundColor3=C().Background; h.BackgroundTransparency=.15; h.BorderSizePixel=0; h.Parent=bg; addCorner(h,9); addStroke(h,C().Accent,1,.15)
+    local l=createLabel(h,"CHECKPOINT "..index,UDim2.fromScale(1,1),UDim2.fromScale(0,0),Enum.Font.GothamBold,10); l.TextXAlignment=Enum.TextXAlignment.Center
+    task.spawn(function() while m.Parent do local t=tween(p,TweenInfo.new(.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{Transparency=.45}); t:Play(); t.Completed:Wait(); if not m.Parent then break end; local t2=tween(p,TweenInfo.new(.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{Transparency=.15}); t2:Play(); t2.Completed:Wait() end end)
+    return m
+end
+local function addCheckpoint() local r=checkpointRoot(); if not r then showNotification("Персонаж не найден",C().Red); return end; local i=#checkpoints+1; table.insert(checkpoints,{Position=r.Position,Marker=createCheckpointMarker(i,r.Position)}); updateCheckpointUI(); showNotification("Точка "..i.." добавлена",C().Green) end
+local function removeLastCheckpoint() if #checkpoints==0 then showNotification("Нет точек для удаления",C().Red); return end; local cp=table.remove(checkpoints); if cp.Marker then cp.Marker:Destroy() end; updateCheckpointUI(); showNotification("Последняя точка удалена",C().Accent) end
+local function clearCheckpoints() checkpointRouteRunning=false; checkpointCurrentIndex=1; for _,cp in ipairs(checkpoints) do if cp.Marker then cp.Marker:Destroy() end end; table.clear(checkpoints); updateCheckpointUI(); showNotification("Все чекпоинты очищены",C().Red) end
+local function parseCheckpointSpeed(x) x=string.lower(tostring(x)):gsub("%s+",""); if x=="inf" or x=="infinity" or x=="∞" then return math.huge end; local n=tonumber(x); if not n or n<1 then return nil end; return n end
+local function moveCheckpoint(target) local r=checkpointRoot(); if not r then return false end; if checkpointRouteSpeed==math.huge then r.CFrame=CFrame.new(target); return true end; local start=r.Position; local d=(target-start).Magnitude; if d<=.05 then return true end; local dur=d/checkpointRouteSpeed; local e=0; while e<dur do if not checkpointRouteRunning then return false end; local cur=checkpointRoot(); if not cur then return false end; e+=RunService.Heartbeat:Wait(); cur.CFrame=CFrame.new(start:Lerp(target,math.clamp(e/dur,0,1))) end; return true end
+local function stopCheckpointRoute(silent) checkpointRouteRunning=false; checkpointCurrentIndex=1; updateCheckpointUI(); if not silent then showNotification("Маршрут остановлен",C().Red) end end
+local function startCheckpointRoute() if checkpointRouteRunning then stopCheckpointRoute(false); return end; if #checkpoints<2 then showNotification("Нужно минимум 2 точки",C().Red); return end; local sp=parseCheckpointSpeed(CheckpointSpeedInput.Text); if not sp then showNotification("Введите скорость от 1 или inf",C().Red); return end; checkpointRouteSpeed=sp; checkpointRouteRunning=true; updateCheckpointUI(); showNotification("Маршрут запущен",C().Green); task.spawn(function() while checkpointRouteRunning do local cp=checkpoints[checkpointCurrentIndex]; if not cp then break end; CheckpointStatus.Text="Точка "..checkpointCurrentIndex.." / "..#checkpoints; if moveCheckpoint(cp.Position) then checkpointCurrentIndex=checkpointCurrentIndex+1; if checkpointCurrentIndex>#checkpoints then checkpointCurrentIndex=1 end else task.wait(.1) end; task.wait() end; if checkpointRouteRunning then stopCheckpointRoute(true) end end) end
+
+CheckpointButton.MouseButton1Click:Connect(function() CheckpointPanel.Position=MenuFrame.Position; MenuFrame.Visible=false; openPanel(CheckpointPanel) end)
+CheckpointCloseButton.MouseButton1Click:Connect(function() local pos=CheckpointPanel.Position; closePanel(CheckpointPanel); task.delay(.23,function() MenuFrame.Position=pos; MenuFrame.Visible=true end) end)
+CheckpointAddButton.MouseButton1Click:Connect(addCheckpoint)
+CheckpointStartButton.MouseButton1Click:Connect(startCheckpointRoute)
+CheckpointDeleteButton.MouseButton1Click:Connect(removeLastCheckpoint)
+CheckpointClearButton.MouseButton1Click:Connect(clearCheckpoints)
+CheckpointSpeedInput.FocusLost:Connect(function(enter) if enter then local sp=parseCheckpointSpeed(CheckpointSpeedInput.Text); if sp then checkpointRouteSpeed=sp else CheckpointSpeedInput.Text=tostring(checkpointRouteSpeed); showNotification("Неверная скорость",C().Red) end end end)
+
 --========================================================--
 -- SLIDER
 --========================================================--
@@ -1010,6 +1143,7 @@ for _, button in ipairs({
     NoclipButton,
     InfiniteJumpButton,
     TeleportButton,
+    CheckpointButton, CheckpointAddButton, CheckpointStartButton, CheckpointDeleteButton, CheckpointClearButton,
 
     SpeedSettingsButton,
     WallHackSettingsButton,
@@ -1027,7 +1161,8 @@ for _, button in ipairs({
     TeleportCloseButton,
     SpeedSettingsCloseButton,
     WallHackSettingsCloseButton,
-    MenuSettingsCloseButton
+    MenuSettingsCloseButton,
+    CheckpointCloseButton
 }) do
     setupButtonFeedback(button)
 end
@@ -1302,6 +1437,8 @@ MenuSettingsHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(MenuSettingsPanel, input)
 end)
 
+CheckpointHeaderFrame.InputBegan:Connect(function(input) beginDrag(CheckpointPanel,input) end)
+
 SpeedSettingsHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(SpeedSettingsPanel, input)
 end)
@@ -1360,7 +1497,7 @@ loadPosition()
 -- PANEL ANIMATIONS
 --========================================================--
 
-local function openPanel(panel)
+openPanel = function(panel)
     if not panel then
         return
     end
@@ -1381,7 +1518,7 @@ local function openPanel(panel)
     }):Play()
 end
 
-local function closePanel(panel)
+closePanel = function(panel)
     if not panel then
         return
     end
@@ -1423,6 +1560,7 @@ local function closeMainMenu()
     SpeedSettingsPanel.Visible = false
     WallHackSettingsPanel.Visible = false
     MenuSettingsPanel.Visible = false
+    CheckpointPanel.Visible = false
 
     local closeTween = tween(
         MenuFrame,
@@ -1536,7 +1674,8 @@ local function applyTheme()
         TeleportPanel,
         SpeedSettingsPanel,
         WallHackSettingsPanel,
-        MenuSettingsPanel
+        MenuSettingsPanel,
+        CheckpointPanel
     }) do
         panel.BackgroundColor3 = t.Background
     end
@@ -1545,10 +1684,26 @@ local function applyTheme()
         TeleportHeaderFrame,
         SpeedSettingsHeaderFrame,
         WallHackSettingsHeaderFrame,
-        MenuSettingsHeaderFrame
+        MenuSettingsHeaderFrame,
+        CheckpointHeaderFrame
     }) do
         header.BackgroundColor3 = t.Header
     end
+
+    CheckpointButton.BackgroundColor3=t.Surface
+    CheckpointIcon.BackgroundColor3=t.Surface2
+    CheckpointIconText.TextColor3=t.Accent
+    CheckpointTitle.TextColor3=t.Text
+    CheckpointStatus.TextColor3=checkpointRouteRunning and t.Green or t.SubText
+    CheckpointSwitch.BackgroundColor3=checkpointRouteRunning and t.Green or t.Surface2
+    CheckpointSwitchDot.BackgroundColor3=checkpointRouteRunning and Color3.new(1,1,1) or t.SubText
+    CheckpointInfo.TextColor3=t.SubText
+    CheckpointCountLabel.TextColor3=t.Accent
+    CheckpointSpeedTitle.TextColor3=t.SubText
+    CheckpointSpeedInput.BackgroundColor3=t.Input
+    CheckpointSpeedInput.TextColor3=t.Text
+    CheckpointSpeedHint.TextColor3=t.SubText
+    for _,b in ipairs({CheckpointAddButton,CheckpointStartButton,CheckpointDeleteButton,CheckpointClearButton}) do b.BackgroundColor3=t.Surface; b.TextColor3=t.Text end
 
     ThemeButton.Text =
         isDarkTheme and "☾" or "☀"
@@ -2965,6 +3120,8 @@ LocalPlayer.CharacterAdded:Connect(
     function()
         task.wait(0.5)
 
+        if checkpointRouteRunning then stopCheckpointRoute(true) end
+
         if isSpeedHackEnabled then
             local speed =
                 tonumber(
@@ -2985,6 +3142,12 @@ LocalPlayer.CharacterAdded:Connect(
         end
     end
 )
+
+--========================================================--
+-- CHECKPOINT CLEANUP
+--========================================================--
+
+ScreenGui.Destroying:Connect(function() checkpointRouteRunning=false; if checkpointFolder and checkpointFolder.Parent then checkpointFolder:Destroy() end end)
 
 --========================================================--
 -- INITIAL STATE
@@ -3026,6 +3189,8 @@ OutOfBoundsButton.Text =
 
 AutoSpeedMaintainButton.Text =
     "Автоматически сохранять скорость       ВЫКЛ"
+
+updateCheckpointUI()
 
 TransparencyValue.Text =
     tostring(
