@@ -18,7 +18,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 --========================================================--
 
 local MENU_WIDTH = 440
-local MENU_HEIGHT = 370
+local MENU_HEIGHT = 340
 
 local PANEL_WIDTH = 300
 local PANEL_HEIGHT = 340
@@ -384,11 +384,15 @@ Content.Size = UDim2.new(1, -30, 1, -84)
 Content.Position = UDim2.fromOffset(15, 77)
 Content.BackgroundTransparency = 1
 Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.ScrollBarImageColor3 = C().Accent
-Content.ScrollingDirection = Enum.ScrollingDirection.Y
-Content.CanvasSize = UDim2.fromOffset(0, 310)
 Content.ZIndex = 11
+Content.ScrollingDirection = Enum.ScrollingDirection.Y
+Content.ScrollBarThickness = 5
+Content.ScrollBarImageColor3 = C().Accent
+Content.ScrollBarImageTransparency = 0
+Content.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+Content.CanvasSize = UDim2.fromOffset(0, 315)
+Content.CanvasPosition = Vector2.new(0, 0)
+Content.ElasticBehavior = Enum.ElasticBehavior.Never
 
 local SectionTitle = createLabel(
     Content,
@@ -500,8 +504,8 @@ local TeleportButton, TeleportStatus =
 
 local CheckpointButton = Instance.new("TextButton")
 CheckpointButton.Parent = Content
-CheckpointButton.Size = UDim2.new(1, 0, 0, 58)
-CheckpointButton.Position = UDim2.fromOffset(0, 230)
+CheckpointButton.Size = UDim2.fromOffset(198, 58)
+CheckpointButton.Position = UDim2.fromOffset(212, 230)
 CheckpointButton.BackgroundColor3 = C().Surface
 CheckpointButton.BorderSizePixel = 0
 CheckpointButton.Text = ""
@@ -1029,8 +1033,8 @@ local function moveCheckpoint(target) local r=checkpointRoot(); if not r then re
 local function stopCheckpointRoute(silent) checkpointRouteRunning=false; checkpointCurrentIndex=1; updateCheckpointUI(); if not silent then showNotification("Маршрут остановлен",C().Red) end end
 local function startCheckpointRoute() if checkpointRouteRunning then stopCheckpointRoute(false); return end; if #checkpoints<2 then showNotification("Нужно минимум 2 точки",C().Red); return end; local sp=parseCheckpointSpeed(CheckpointSpeedInput.Text); if not sp then showNotification("Введите скорость от 1 или inf",C().Red); return end; checkpointRouteSpeed=sp; checkpointRouteRunning=true; updateCheckpointUI(); showNotification("Маршрут запущен",C().Green); task.spawn(function() while checkpointRouteRunning do local cp=checkpoints[checkpointCurrentIndex]; if not cp then break end; CheckpointStatus.Text="Точка "..checkpointCurrentIndex.." / "..#checkpoints; if moveCheckpoint(cp.Position) then checkpointCurrentIndex=checkpointCurrentIndex+1; if checkpointCurrentIndex>#checkpoints then checkpointCurrentIndex=1 end else task.wait(.1) end; task.wait() end; if checkpointRouteRunning then stopCheckpointRoute(true) end end) end
 
-CheckpointButton.MouseButton1Click:Connect(function() CheckpointPanel.Position=MenuFrame.Position; MenuFrame.Visible=false; openPanel(CheckpointPanel) end)
-CheckpointCloseButton.MouseButton1Click:Connect(function() local pos=CheckpointPanel.Position; closePanel(CheckpointPanel); task.delay(.23,function() MenuFrame.Position=pos; MenuFrame.Visible=true end) end)
+CheckpointButton.MouseButton1Click:Connect(function() CheckpointPanel.Position=MenuFrame.Position; openPanel(CheckpointPanel) end)
+CheckpointCloseButton.MouseButton1Click:Connect(function() closePanel(CheckpointPanel) end)
 CheckpointAddButton.MouseButton1Click:Connect(addCheckpoint)
 CheckpointStartButton.MouseButton1Click:Connect(startCheckpointRoute)
 CheckpointDeleteButton.MouseButton1Click:Connect(removeLastCheckpoint)
