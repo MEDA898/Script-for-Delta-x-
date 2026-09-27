@@ -735,7 +735,7 @@ local nicknameDistance = 500
 
 local NicknamesButton = Instance.new("TextButton")
 NicknamesButton.Parent = WallHackSettingsList
-NicknamesButton.Size = UDim2.new(1, -4, 0, 43)
+NicknamesButton.Size = UDim2.new(1, -4, 0, 36)
 NicknamesButton.BackgroundColor3 = C().Surface
 NicknamesButton.BorderSizePixel = 0
 NicknamesButton.Text = "Показывать никнеймы       ВЫКЛ"
@@ -764,7 +764,7 @@ NicknamesInfo.ZIndex = 70
 
 local HealthButton = Instance.new("TextButton")
 HealthButton.Parent = WallHackSettingsList
-HealthButton.Size = UDim2.new(1, -4, 0, 43)
+HealthButton.Size = UDim2.new(1, -4, 0, 36)
 HealthButton.BackgroundColor3 = C().Surface
 HealthButton.BorderSizePixel = 0
 HealthButton.Text = "Показывать здоровье       ВЫКЛ"
@@ -832,7 +832,7 @@ SpeedInfo.TextColor3 = C().SubText
 
 local AutoSpeedMaintainButton = Instance.new("TextButton")
 AutoSpeedMaintainButton.Parent = SpeedSettingsList
-AutoSpeedMaintainButton.Size = UDim2.new(1, -4, 0, 43)
+AutoSpeedMaintainButton.Size = UDim2.new(1, -4, 0, 36)
 AutoSpeedMaintainButton.BackgroundColor3 = C().Surface
 AutoSpeedMaintainButton.BorderSizePixel = 0
 AutoSpeedMaintainButton.Text =
@@ -851,7 +851,7 @@ addStroke(AutoSpeedMaintainButton, C().Stroke, 1, 0.15)
 
 local OutOfBoundsButton = Instance.new("TextButton")
 OutOfBoundsButton.Parent = MenuSettingsList
-OutOfBoundsButton.Size = UDim2.new(1, -4, 0, 42)
+OutOfBoundsButton.Size = UDim2.new(1, -4, 0, 36)
 OutOfBoundsButton.BackgroundColor3 = C().Surface
 OutOfBoundsButton.BorderSizePixel = 0
 OutOfBoundsButton.Text =
@@ -4735,3 +4735,984 @@ if not serverHopExtensionOk then
         serverHopExtensionError
     )
 end
+
+
+--========================================================--
+--                MEDA HUB v3 CONFIGS v2                 --
+--   Snapshot configs: CREATE -> SAVE, LOAD -> APPLY      --
+--========================================================--
+
+task.defer(function()
+    local ok, err = xpcall(function()
+        local HttpService = game:GetService("HttpService")
+
+        local CONFIG_FILE = "MedaHub_Configs.json"
+        local CONFIG_VERSION = 3
+
+        local configs = {}
+        local configBusy = false
+
+        local function fileApiAvailable()
+            return type(isfile) == "function"
+                and type(readfile) == "function"
+                and type(writefile) == "function"
+        end
+
+        local function notify(text, color)
+            pcall(function()
+                showNotification(text, color)
+            end)
+        end
+
+        local function jsonEncode(value)
+            local success, result = pcall(function()
+                return HttpService:JSONEncode(value)
+            end)
+            return success and result or nil
+        end
+
+        local function jsonDecode(value)
+            local success, result = pcall(function()
+                return HttpService:JSONDecode(value)
+            end)
+            return success and result or nil
+        end
+
+        local function readConfigFile()
+            table.clear(configs)
+
+            if not fileApiAvailable() then
+                return
+            end
+
+            local exists = false
+            pcall(function()
+                exists = isfile(CONFIG_FILE)
+            end)
+
+            if not exists then
+                return
+            end
+
+            local success, raw = pcall(readfile, CONFIG_FILE)
+            if not success or type(raw) ~= "string" or raw == "" then
+                return
+            end
+
+            local decoded = jsonDecode(raw)
+            if type(decoded) ~= "table" then
+                return
+            end
+
+            -- Поддержка старого формата: {configs = {...}}
+            if type(decoded.configs) == "table" then
+                for _, cfg in ipairs(decoded.configs) do
+                    if type(cfg) == "table" and type(cfg.name) == "string" then
+                        configs[#configs + 1] = cfg
+                    end
+                end
+            elseif #decoded > 0 then
+                for _, cfg in ipairs(decoded) do
+                    if type(cfg) == "table" and type(cfg.name) == "string" then
+                        configs[#configs + 1] = cfg
+                    end
+                end
+            end
+        end
+
+        local function writeConfigFile()
+            if not fileApiAvailable() then
+                return false
+            end
+
+            local encoded = jsonEncode({
+                version = CONFIG_VERSION,
+                configs = configs,
+                updatedAt = os.time()
+            })
+
+            if not encoded then
+                return false
+            end
+
+            local success = pcall(function()
+                writefile(CONFIG_FILE, encoded)
+            end)
+
+            return success
+        end
+
+        local function findConfig(name)
+            for _, cfg in ipairs(configs) do
+                if cfg.name == name then
+                    return cfg
+                end
+            end
+            return nil
+        end
+
+        local function vecToData(v)
+            return {
+                x = v.X,
+                y = v.Y,
+                z = v.Z
+            }
+        end
+
+        local function dataToVec(v)
+            if type(v) ~= "table" then
+                return nil
+            end
+
+            local x = tonumber(v.x)
+            local y = tonumber(v.y)
+            local z = tonumber(v.z)
+
+            if not x or not y or not z then
+                return nil
+            end
+
+            return Vector3.new(x, y, z)
+        end
+
+        local function udim2ToData(value)
+            return {
+                xs = value.X.Scale,
+                xo = value.X.Offset,
+                ys = value.Y.Scale,
+                yo = value.Y.Offset
+            }
+        end
+
+        local function dataToUDim2(value)
+            if type(value) ~= "table" then
+                return nil
+            end
+
+            return UDim2.new(
+                tonumber(value.xs) or 0,
+                tonumber(value.xo) or 0,
+                tonumber(value.ys) or 0,
+                tonumber(value.yo) or 0
+            )
+        end
+
+        local function snapshot()
+            local routeSpeed = checkpointRouteSpeed
+            if routeSpeed == math.huge then
+                routeSpeed = "inf"
+            end
+
+            local pointData = {}
+
+            for _, point in ipairs(checkpoints) do
+                if type(point) == "table"
+                    and typeof(point.Position) == "Vector3"
+                then
+                    pointData[#pointData + 1] =
+                        vecToData(point.Position)
+                end
+            end
+
+            return {
+                version = CONFIG_VERSION,
+
+                -- Основные функции
+                speedHack = isSpeedHackEnabled == true,
+                speed = tonumber(SpeedSettingsInput.Text)
+                    or DEFAULT_SPEED,
+                autoSpeed = isAutoSpeedMaintainEnabled == true,
+
+                wallHack = isWallHackEnabled == true,
+                nicknames = showNicknames == true,
+                health = showHealth == true,
+                nicknameDistance = tonumber(nicknameDistance)
+                    or 500,
+
+                noclip = isNoclipEnabled == true,
+                infiniteJump = isInfiniteJumpEnabled == true,
+
+                -- Меню
+                darkTheme = isDarkTheme == true,
+                allowOutOfBounds = allowOutOfBounds == true,
+                dragTransparency = tonumber(dragTransparency)
+                    or 0.45,
+                menuPosition = udim2ToData(MenuFrame.Position),
+
+                -- Чекпоинты
+                checkpointSpeed = routeSpeed,
+                checkpoints = pointData
+            }
+        end
+
+        --================================================--
+        -- UI: РАЗМЕР ПАНЕЛИ НАСТРОЕК
+        --================================================--
+
+        local CONFIG_PANEL_WIDTH = PANEL_WIDTH
+        local CONFIG_PANEL_HEIGHT = PANEL_HEIGHT
+
+        MenuSettingsPanel:SetAttribute(
+            "CustomWidth",
+            CONFIG_PANEL_WIDTH
+        )
+
+        MenuSettingsPanel:SetAttribute(
+            "CustomHeight",
+            CONFIG_PANEL_HEIGHT
+        )
+
+        local oldOpenPanel = openPanel
+        local oldClosePanel = closePanel
+
+        openPanel = function(panel)
+            if panel == MenuSettingsPanel then
+                panel.Visible = true
+
+                local target =
+                    UDim2.fromOffset(
+                        CONFIG_PANEL_WIDTH,
+                        CONFIG_PANEL_HEIGHT
+                    )
+
+                panel.Size = UDim2.fromOffset(0, 0)
+
+                tween(panel, NORMAL_TWEEN, {
+                    Size = target
+                }):Play()
+
+                return
+            end
+
+            oldOpenPanel(panel)
+        end
+
+        closePanel = function(panel)
+            if panel == MenuSettingsPanel then
+                local closeTween = tween(
+                    panel,
+                    NORMAL_TWEEN,
+                    {
+                        Size = UDim2.fromOffset(0, 0)
+                    }
+                )
+
+                closeTween:Play()
+
+                closeTween.Completed:Connect(function()
+                    if panel and panel.Parent then
+                        panel.Visible = false
+                        panel.Size =
+                            UDim2.fromOffset(
+                                CONFIG_PANEL_WIDTH,
+                                CONFIG_PANEL_HEIGHT
+                            )
+                    end
+                end)
+
+                return
+            end
+
+            oldClosePanel(panel)
+        end
+
+        --================================================--
+        -- UI: КРАСИВЫЙ БЛОК КОНФИГОВ
+        --================================================--
+
+        local separator = Instance.new("Frame")
+        separator.Parent = MenuSettingsList
+        separator.Size = UDim2.new(1, -4, 0, 1)
+        separator.BackgroundColor3 = C().Stroke
+        separator.BackgroundTransparency = 0.35
+        separator.BorderSizePixel = 0
+        separator.ZIndex = 70
+
+        local configsHeader = Instance.new("Frame")
+        configsHeader.Parent = MenuSettingsList
+        configsHeader.Size = UDim2.new(1, -4, 0, 64)
+        configsHeader.BackgroundColor3 = C().Surface
+        configsHeader.BorderSizePixel = 0
+        configsHeader.ZIndex = 70
+        addCorner(configsHeader, 12)
+        addStroke(
+            configsHeader,
+            C().Stroke,
+            1,
+            0.12
+        )
+
+        local configsTitle = createLabel(
+            configsHeader,
+            "СОХРАНЁННЫЕ КОНФИГИ",
+            UDim2.new(1, -24, 0, 25),
+            UDim2.fromOffset(12, 8),
+            Enum.Font.GothamBold,
+            12
+        )
+        configsTitle.TextColor3 = C().Text
+        configsTitle.ZIndex = 71
+
+        local configsSubtitle = createLabel(
+            configsHeader,
+            "Снимок текущих настроек хаба",
+            UDim2.new(1, -24, 0, 17),
+            UDim2.fromOffset(12, 27),
+            Enum.Font.Gotham,
+            10
+        )
+        configsSubtitle.TextColor3 = C().SubText
+        configsSubtitle.ZIndex = 71
+
+        local configNameInput = Instance.new("TextBox")
+        configNameInput.Parent = MenuSettingsList
+        configNameInput.Size = UDim2.new(1, -4, 0, 38)
+        configNameInput.BackgroundColor3 = C().Input
+        configNameInput.BorderSizePixel = 0
+        configNameInput.Text = ""
+        configNameInput.PlaceholderText = "Введите имя конфига..."
+        configNameInput.PlaceholderColor3 = C().SubText
+        configNameInput.TextColor3 = C().Text
+        configNameInput.Font = Enum.Font.GothamMedium
+        configNameInput.TextSize = 11
+        configNameInput.TextXAlignment = Enum.TextXAlignment.Left
+        configNameInput.ClearTextOnFocus = false
+        configNameInput.ZIndex = 70
+        addCorner(configNameInput, 10)
+        addStroke(
+            configNameInput,
+            C().Stroke,
+            1,
+            0.12
+        )
+
+        local createConfigButton = Instance.new("TextButton")
+        createConfigButton.Parent = MenuSettingsList
+        createConfigButton.Size = UDim2.new(1, -4, 0, 38)
+        createConfigButton.BackgroundColor3 = C().Accent
+        createConfigButton.BorderSizePixel = 0
+        createConfigButton.Text = "+  СОЗДАТЬ КОНФИГ И СОХРАНИТЬ"
+        createConfigButton.TextColor3 = Color3.new(1, 1, 1)
+        createConfigButton.Font = Enum.Font.GothamBold
+        createConfigButton.TextSize = 10
+        createConfigButton.AutoButtonColor = false
+        createConfigButton.ZIndex = 70
+        addCorner(createConfigButton, 10)
+
+        local configStatus = createLabel(
+            MenuSettingsList,
+            "Конфиг не выбран",
+            UDim2.new(1, -4, 0, 20),
+            UDim2.fromOffset(0, 0),
+            Enum.Font.GothamMedium,
+            9
+        )
+        configStatus.TextColor3 = C().SubText
+        configStatus.ZIndex = 70
+
+        local configListFrame = Instance.new("Frame")
+        configListFrame.Parent = MenuSettingsList
+        configListFrame.Size = UDim2.new(1, -4, 0, 0)
+        configListFrame.BackgroundTransparency = 1
+        configListFrame.BorderSizePixel = 0
+        configListFrame.ZIndex = 70
+
+        local configLayout = Instance.new("UIListLayout")
+        configLayout.Parent = configListFrame
+        configLayout.Padding = UDim.new(0, 5)
+        configLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        configLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            configListFrame.Size = UDim2.new(
+                1,
+                -4,
+                0,
+                configLayout.AbsoluteContentSize.Y
+            )
+        end)
+
+        local activeConfigName = nil
+
+        local function updateConfigStatus()
+            if activeConfigName then
+                configStatus.Text =
+                    "● Активный конфиг: "
+                    .. activeConfigName
+                configStatus.TextColor3 = C().Green
+            else
+                configStatus.Text = "Конфиг не выбран"
+                configStatus.TextColor3 = C().SubText
+            end
+        end
+
+        local function updateTransparencyUI()
+            local percent =
+                math.clamp(
+                    dragTransparency / MAX_DRAG_TRANSPARENCY,
+                    0,
+                    1
+                )
+
+            SliderFill.Size = UDim2.new(
+                percent,
+                0,
+                1,
+                0
+            )
+
+            SliderKnob.Position = UDim2.new(
+                percent,
+                0,
+                0.5,
+                0
+            )
+
+            TransparencyValue.Text =
+                tostring(
+                    math.floor(
+                        dragTransparency * 100 + 0.5
+                    )
+                ) .. "%"
+        end
+
+        local function updateMenuSettingsUI()
+            OutOfBoundsButton.Text =
+                "Перемещение за границы экрана       "
+                .. (
+                    allowOutOfBounds
+                        and "ВКЛ"
+                        or "ВЫКЛ"
+                )
+
+            OutOfBoundsButton.TextColor3 =
+                allowOutOfBounds
+                    and C().Green
+                    or C().Text
+
+            AutoSpeedMaintainButton.Text =
+                "Автоматически сохранять скорость       "
+                .. (
+                    isAutoSpeedMaintainEnabled
+                        and "ВКЛ"
+                        or "ВЫКЛ"
+                )
+
+            AutoSpeedMaintainButton.TextColor3 =
+                isAutoSpeedMaintainEnabled
+                    and C().Green
+                    or C().Text
+
+            NicknamesButton.Text =
+                "Показывать никнеймы       "
+                .. (
+                    showNicknames
+                        and "ВКЛ"
+                        or "ВЫКЛ"
+                )
+
+            NicknamesButton.TextColor3 =
+                showNicknames
+                    and C().Green
+                    or C().Text
+
+            HealthButton.Text =
+                "Показывать здоровье       "
+                .. (
+                    showHealth
+                        and "ВКЛ"
+                        or "ВЫКЛ"
+                )
+
+            HealthButton.TextColor3 =
+                showHealth
+                    and C().Green
+                    or C().Text
+
+            updateTransparencyUI()
+
+            pcall(function()
+                ThemeButton.Text =
+                    isDarkTheme and "☾" or "☀"
+            end)
+        end
+
+        local function rebuildConfigList()
+            for _, child in ipairs(
+                configListFrame:GetChildren()
+            ) do
+                if child:IsA("Frame") then
+                    child:Destroy()
+                end
+            end
+
+            table.sort(configs, function(a, b)
+                return tostring(a.name):lower()
+                    < tostring(b.name):lower()
+            end)
+
+            for _, cfg in ipairs(configs) do
+                local row = Instance.new("Frame")
+                row.Parent = configListFrame
+                row.Size = UDim2.new(1, 0, 0, 52)
+                row.BackgroundColor3 = C().Surface
+                row.BorderSizePixel = 0
+                row.ZIndex = 71
+                addCorner(row, 11)
+                addStroke(
+                    row,
+                    C().Stroke,
+                    1,
+                    0.14
+                )
+
+                local accent = Instance.new("Frame")
+                accent.Parent = row
+                accent.Size = UDim2.fromOffset(3, 34)
+                accent.Position = UDim2.fromOffset(7, 9)
+                accent.BackgroundColor3 =
+                    cfg.name == activeConfigName
+                    and C().Green
+                    or C().Accent
+                accent.BorderSizePixel = 0
+                accent.ZIndex = 72
+                addCorner(accent, 2)
+
+                local nameLabel = createLabel(
+                    row,
+                    tostring(cfg.name),
+                    UDim2.new(1, -150, 0, 21),
+                    UDim2.fromOffset(17, 5),
+                    Enum.Font.GothamBold,
+                    10
+                )
+                nameLabel.TextColor3 = C().Text
+                nameLabel.TextTruncate =
+                    Enum.TextTruncate.AtEnd
+                nameLabel.ZIndex = 72
+
+                local dateLabel = createLabel(
+                    row,
+                    "Сохранён: "
+                        .. os.date(
+                            "%d.%m.%Y %H:%M",
+                            tonumber(cfg.updatedAt)
+                                or tonumber(cfg.createdAt)
+                                or os.time()
+                        ),
+                    UDim2.new(1, -150, 0, 16),
+                    UDim2.fromOffset(17, 27),
+                    Enum.Font.Gotham,
+                    8
+                )
+                dateLabel.TextColor3 = C().SubText
+                dateLabel.ZIndex = 72
+
+                local loadButton = Instance.new("TextButton")
+                loadButton.Parent = row
+                loadButton.Size = UDim2.fromOffset(52, 28)
+                loadButton.Position =
+                    UDim2.new(1, -112, 0.5, -14)
+                loadButton.BackgroundColor3 = C().Surface2
+                loadButton.BorderSizePixel = 0
+                loadButton.Text = "ЗАГРУЗИТЬ"
+                loadButton.TextColor3 = C().Green
+                loadButton.Font = Enum.Font.GothamBold
+                loadButton.TextSize = 7
+                loadButton.AutoButtonColor = false
+                loadButton.ZIndex = 73
+                addCorner(loadButton, 8)
+
+                local deleteButton = Instance.new("TextButton")
+                deleteButton.Parent = row
+                deleteButton.Size = UDim2.fromOffset(52, 28)
+                deleteButton.Position =
+                    UDim2.new(1, -56, 0.5, -14)
+                deleteButton.BackgroundColor3 = C().Surface2
+                deleteButton.BorderSizePixel = 0
+                deleteButton.Text = "УДАЛИТЬ"
+                deleteButton.TextColor3 = C().Red
+                deleteButton.Font = Enum.Font.GothamBold
+                deleteButton.TextSize = 7
+                deleteButton.AutoButtonColor = false
+                deleteButton.ZIndex = 73
+                addCorner(deleteButton, 8)
+
+                loadButton.MouseButton1Click:Connect(function()
+                    if configBusy then
+                        return
+                    end
+
+                    -- Используем сам объект cfg, а не ищем его по индексу.
+                    -- Это исключает ошибки после сортировки списка.
+                    configBusy = true
+
+                    local success, loadError =
+                        pcall(function()
+                            local desiredSpeed =
+                                tonumber(cfg.speed)
+                                or DEFAULT_SPEED
+
+                            desiredSpeed =
+                                math.clamp(
+                                    desiredSpeed,
+                                    MIN_SPEED,
+                                    MAX_SPEED
+                                )
+
+                            SpeedSettingsInput.Text =
+                                tostring(desiredSpeed)
+
+                            -- Скорость
+                            if isSpeedHackEnabled
+                                ~= (cfg.speedHack == true)
+                            then
+                                toggleSpeedHack()
+                            elseif isSpeedHackEnabled then
+                                setSpeed(
+                                    desiredSpeed,
+                                    false
+                                )
+                            end
+
+                            isAutoSpeedMaintainEnabled =
+                                cfg.autoSpeed == true
+
+                            if isAutoSpeedMaintainEnabled then
+                                startSpeedMaintain()
+                            else
+                                stopSpeedMaintain()
+                            end
+
+                            -- WallHack
+                            if isWallHackEnabled
+                                ~= (cfg.wallHack == true)
+                            then
+                                toggleWallHack()
+                            end
+
+                            -- Никнеймы / HP
+                            showNicknames =
+                                cfg.nicknames == true
+
+                            showHealth =
+                                cfg.health == true
+
+                            updateMenuSettingsUI()
+                            refreshNicknames()
+
+                            for player in pairs(nicknameGuis) do
+                                if showHealth
+                                    and showNicknames
+                                    and isWallHackEnabled
+                                then
+                                    connectNicknameHealth(player)
+                                else
+                                    disconnectHealthConnection(
+                                        player
+                                    )
+                                end
+                            end
+
+                            -- Noclip
+                            if isNoclipEnabled
+                                ~= (cfg.noclip == true)
+                            then
+                                toggleNoclip()
+                            end
+
+                            -- Infinite Jump
+                            if isInfiniteJumpEnabled
+                                ~= (cfg.infiniteJump == true)
+                            then
+                                toggleInfiniteJump()
+                            end
+
+                            -- Настройки меню
+                            isDarkTheme =
+                                cfg.darkTheme ~= false
+
+                            allowOutOfBounds =
+                                cfg.allowOutOfBounds == true
+
+                            dragTransparency =
+                                math.clamp(
+                                    tonumber(
+                                        cfg.dragTransparency
+                                    ) or 0.45,
+                                    MIN_DRAG_TRANSPARENCY,
+                                    MAX_DRAG_TRANSPARENCY
+                                )
+
+                            local savedMenuPosition =
+                                dataToUDim2(
+                                    cfg.menuPosition
+                                )
+
+                            if savedMenuPosition then
+                                MenuFrame.Position =
+                                    savedMenuPosition
+                                savePosition()
+                            end
+
+                            -- Чекпоинты
+                            checkpointRouteRunning = false
+
+                            for _, point in ipairs(checkpoints) do
+                                if type(point) == "table"
+                                    and point.Marker
+                                    and point.Marker.Parent
+                                then
+                                    point.Marker:Destroy()
+                                end
+                            end
+
+                            table.clear(checkpoints)
+
+                            for _, object in ipairs(
+                                checkpointFolder:GetChildren()
+                            ) do
+                                object:Destroy()
+                            end
+
+                            local savedRouteSpeed =
+                                cfg.checkpointSpeed
+
+                            if savedRouteSpeed == "inf" then
+                                checkpointRouteSpeed =
+                                    math.huge
+                                CheckpointSpeedInput.Text =
+                                    "inf"
+                            else
+                                checkpointRouteSpeed =
+                                    tonumber(
+                                        savedRouteSpeed
+                                    ) or 16
+
+                                CheckpointSpeedInput.Text =
+                                    tostring(
+                                        checkpointRouteSpeed
+                                    )
+                            end
+
+                            if type(cfg.checkpoints)
+                                == "table"
+                            then
+                                for _, pointData in ipairs(
+                                    cfg.checkpoints
+                                ) do
+                                    local position =
+                                        dataToVec(pointData)
+
+                                    if position then
+                                        local index =
+                                            #checkpoints + 1
+
+                                        local marker =
+                                            createCheckpointMarker(
+                                                index,
+                                                position
+                                            )
+
+                                        checkpoints[index] = {
+                                            Position = position,
+                                            Marker = marker
+                                        }
+                                    end
+                                end
+                            end
+
+                            updateCheckpointUI()
+                            updateMenuSettingsUI()
+
+                            pcall(applyTheme)
+
+                            setFeatureState(
+                                WallHackButton,
+                                isWallHackEnabled
+                            )
+                            setFeatureState(
+                                SpeedHackButton,
+                                isSpeedHackEnabled
+                            )
+                            setFeatureState(
+                                NoclipButton,
+                                isNoclipEnabled
+                            )
+                            setFeatureState(
+                                InfiniteJumpButton,
+                                isInfiniteJumpEnabled
+                            )
+
+                            activeConfigName =
+                                cfg.name
+
+                            updateConfigStatus()
+                            rebuildConfigList()
+                        end)
+
+                    configBusy = false
+
+                    if success then
+                        notify(
+                            "Загружен конфиг: "
+                                .. tostring(cfg.name),
+                            C().Green
+                        )
+                    else
+                        warn(
+                            "[MEDA HUB] Config load error:",
+                            loadError
+                        )
+
+                        notify(
+                            "Ошибка загрузки конфига",
+                            C().Red
+                        )
+                    end
+                end)
+
+                deleteButton.MouseButton1Click:Connect(function()
+                    if configBusy then
+                        return
+                    end
+
+                    for index = #configs, 1, -1 do
+                        if configs[index] == cfg then
+                            table.remove(configs, index)
+                            break
+                        end
+                    end
+
+                    if activeConfigName == cfg.name then
+                        activeConfigName = nil
+                        updateConfigStatus()
+                    end
+
+                    if writeConfigFile() then
+                        rebuildConfigList()
+                        notify(
+                            "Конфиг удалён: "
+                                .. tostring(cfg.name),
+                            C().Red
+                        )
+                    else
+                        notify(
+                            "Не удалось сохранить список конфигов",
+                            C().Red
+                        )
+                    end
+                end)
+            end
+        end
+
+        createConfigButton.MouseButton1Click:Connect(function()
+            if configBusy then
+                return
+            end
+
+            if not fileApiAvailable() then
+                notify(
+                    "Сохранение недоступно: нужен writefile",
+                    C().Red
+                )
+                return
+            end
+
+            local name =
+                tostring(configNameInput.Text or "")
+                    :gsub("^%s+", "")
+                    :gsub("%s+$", "")
+
+            if name == "" then
+                notify(
+                    "Введите имя конфига",
+                    C().Red
+                )
+                return
+            end
+
+            if #name > 32 then
+                name = name:sub(1, 32)
+            end
+
+            if findConfig(name) then
+                notify(
+                    "Конфиг с таким именем уже существует",
+                    C().Red
+                )
+                return
+            end
+
+            configBusy = true
+
+            local cfg = snapshot()
+            cfg.name = name
+            cfg.createdAt = os.time()
+            cfg.updatedAt = os.time()
+
+            configs[#configs + 1] = cfg
+
+            local saved = writeConfigFile()
+
+            configBusy = false
+
+            if saved then
+                activeConfigName = name
+                configNameInput.Text = ""
+                updateConfigStatus()
+                rebuildConfigList()
+
+                notify(
+                    "Конфиг создан и сохранён: "
+                        .. name,
+                    C().Green
+                )
+            else
+                table.remove(
+                    configs,
+                    #configs
+                )
+
+                notify(
+                    "Не удалось записать файл конфига",
+                    C().Red
+                )
+            end
+        end)
+
+        configNameInput.FocusLost:Connect(function(enterPressed)
+            if enterPressed then
+                createConfigButton:Activate()
+            end
+        end)
+
+        -- Обновляем список при изменении темы, чтобы карточки
+        -- сразу получили новые цвета.
+        ThemeButton.MouseButton1Click:Connect(function()
+            task.defer(function()
+                updateMenuSettingsUI()
+                rebuildConfigList()
+            end)
+        end)
+
+        -- Не сохраняем изменения автоматически:
+        -- CREATE создаёт именно снимок текущего состояния.
+        -- Поэтому существующий конфиг не меняется случайно.
+        readConfigFile()
+        updateConfigStatus()
+        rebuildConfigList()
+
+        print(
+            "[MEDA HUB] Config system loaded: "
+                .. tostring(#configs)
+                .. " configs"
+        )
+    end, debug.traceback)
+
+    if not ok then
+        warn(
+            "[MEDA HUB] Config system disabled:",
+            err
+        )
+    end
+end)
