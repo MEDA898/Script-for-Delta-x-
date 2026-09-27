@@ -24,8 +24,8 @@ local PANEL_WIDTH = 300
 local PANEL_HEIGHT = 340
 
 local DEFAULT_SPEED = 16
-local MIN_SPEED = 16
-local MAX_SPEED = 2500
+local MIN_SPEED = 0
+local MAX_SPEED = math.huge
 
 local isDarkTheme = true
 local allowOutOfBounds = false
@@ -1612,6 +1612,10 @@ end)
 -- THEME
 --========================================================--
 
+-- Forward declarations: applyTheme() uses these tables below.
+local nicknameGuis = {}
+local healthConnections = {}
+
 local function applyTheme()
     local t = C()
 
@@ -2341,9 +2345,6 @@ NoclipButton.MouseButton1Click:Connect(
 -- NICKNAME / HEALTH SYSTEM
 --========================================================--
 
-local nicknameGuis = {}
-local healthConnections = {}
-
 local function disconnectHealthConnection(player)
     local connection = healthConnections[player]
 
@@ -2975,6 +2976,41 @@ local function createPlayerButton(player)
 
     avatarText.ZIndex = 72
 
+    local avatarImage =
+        Instance.new("ImageLabel")
+
+    avatarImage.Parent = avatar
+    avatarImage.Size =
+        UDim2.fromScale(1, 1)
+    avatarImage.Position =
+        UDim2.fromScale(0, 0)
+    avatarImage.BackgroundTransparency = 1
+    avatarImage.BorderSizePixel = 0
+    avatarImage.Image = ""
+    avatarImage.ScaleType = Enum.ScaleType.Crop
+    avatarImage.ZIndex = 73
+
+    addCorner(avatarImage, 9)
+
+    task.spawn(function()
+        local ok, content =
+            pcall(function()
+                local image, ready =
+                    Players:GetUserThumbnailAsync(
+                        player.UserId,
+                        Enum.ThumbnailType.HeadShot,
+                        Enum.ThumbnailSize.Size100x100
+                    )
+
+                return image
+            end)
+
+        if ok and content and avatarImage.Parent then
+            avatarImage.Image = content
+            avatarText.Visible = false
+        end
+    end)
+
     local nameLabel =
         createLabel(
             button,
@@ -3202,7 +3238,1500 @@ TransparencyValue.Text =
             dragTransparency * 100 + 0.5
         )
     ) .. "%"
+    
+    
 
 applyTheme()
 
 print("[MEDA HUB] v3 loaded successfully")
+
+
+--========================================================--
+--                 SERVER HOP EXTENSION                   --
+--              OPTIMIZED / LOW-LAG VERSION              --
+--========================================================--
+
+local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
+
+    local ServerHopHttpService = game:GetService("HttpService")
+    local ServerHopTeleportService = game:GetService("TeleportService")
+
+    local SERVER_HOP_FILE = "MedaHub_Favorites.json"
+    local SERVER_HOP_API =
+        "https://games.roblox.com/v1/games/"
+        .. tostring(game.PlaceId)
+        .. "/servers/Public"
+
+    -- Получаем максимум 100 серверов, но одновременно рисуем
+    -- только SERVER_HOP_ROWS_PER_PAGE GUI-строк.
+    local SERVER_HOP_PAGE_LIMIT = 100
+    local SERVER_HOP_MAX_PAGES = 2
+    local SERVER_HOP_ROWS_PER_PAGE = 20
+
+    local serverHopSortMode = "DESC"
+    local serverHopTab = "SERVERS"
+    local serverHopPage = 1
+
+    local serverHopServers = {}
+    local serverHopFavoriteServers = {}
+    local serverHopRows = {}
+    local serverHopLoading = false
+
+    --====================================================--
+    -- FAVORITES STORAGE
+    --====================================================--
+
+    local function serverHopFileAvailable()
+        return type(isfile) == "function"
+            and type(readfile) == "function"
+            and type(writefile) == "function"
+    end
+
+    local function saveServerHopFavorites()
+        if not serverHopFileAvailable() then
+            return false
+        end
+
+        local data = {}
+
+        for serverId, serverData in pairs(serverHopFavoriteServers) do
+            table.insert(data, {
+                id = serverId,
+                name =
+                    serverData.name
+                    or ("Server " .. string.sub(serverId, 1, 8)),
+                savedAt = serverData.savedAt or os.time()
+            })
+        end
+
+        return pcall(function()
+            writefile(
+                SERVER_HOP_FILE,
+                ServerHopHttpService:JSONEncode(data)
+            )
+        end)
+    end
+
+    local function loadServerHopFavorites()
+        table.clear(serverHopFavoriteServers)
+
+        if not serverHopFileAvailable() then
+            return
+        end
+
+        local fileExists = false
+
+        local existsSuccess, existsResult = pcall(function()
+            return isfile(SERVER_HOP_FILE)
+        end)
+
+        if existsSuccess and existsResult then
+            fileExists = true
+        end
+
+        if not fileExists then
+            return
+        end
+
+        local success, result = pcall(function()
+            return ServerHopHttpService:JSONDecode(
+                readfile(SERVER_HOP_FILE)
+            )
+        end)
+
+        if not success or type(result) ~= "table" then
+            return
+        end
+
+        for _, serverData in ipairs(result) do
+            if type(serverData) == "table"
+                and type(serverData.id) == "string"
+                and serverData.id ~= ""
+            then
+                serverHopFavoriteServers[serverData.id] = {
+                    name =
+                        serverData.name
+                        or (
+                            "Server "
+                            .. string.sub(serverData.id, 1, 8)
+                        ),
+                    savedAt = serverData.savedAt or os.time()
+                }
+            end
+        end
+    end
+
+    loadServerHopFavorites()
+
+    --====================================================--
+    -- PANEL
+    --====================================================--
+
+    local ServerHopPanel,
+        ServerHopHeaderFrame,
+        ServerHopCloseButton,
+        ServerHopList =
+        createPanel("ServerHopPanel", "⇄  SERVER HOP")
+
+    local ServerHopInfo = createLabel(
+        ServerHopList,
+        "Загрузка списка серверов...",
+        UDim2.new(1, -4, 0, 20),
+        UDim2.fromOffset(0, 0),
+        Enum.Font.Gotham,
+        10
+    )
+
+    ServerHopInfo.TextColor3 = C().SubText
+    ServerHopInfo.ZIndex = 70
+
+    --====================================================--
+    -- CURRENT SERVER (PINNED)
+    --====================================================--
+
+    local ServerHopCurrentCard = Instance.new("Frame")
+    ServerHopCurrentCard.Parent = ServerHopList
+    ServerHopCurrentCard.Size = UDim2.new(1, -4, 0, 86)
+    ServerHopCurrentCard.BackgroundColor3 = C().Surface
+    ServerHopCurrentCard.BorderSizePixel = 0
+    ServerHopCurrentCard.ZIndex = 70
+    addCorner(ServerHopCurrentCard, 10)
+    addStroke(ServerHopCurrentCard, C().Accent, 1, 0.15)
+
+    local ServerHopCurrentTitle = createLabel(ServerHopCurrentCard, "ТЕКУЩИЙ СЕРВЕР", UDim2.new(1, -165, 0, 21), UDim2.fromOffset(10, 5), Enum.Font.GothamBold, 11)
+    ServerHopCurrentTitle.TextColor3 = C().Text
+    ServerHopCurrentTitle.ZIndex = 73
+
+    local ServerHopCurrentPlayers = createLabel(ServerHopCurrentCard, "●  ИГРОКОВ  N/A", UDim2.new(0.62, 0, 0, 20), UDim2.fromOffset(10, 29), Enum.Font.GothamBold, 10)
+    ServerHopCurrentPlayers.TextColor3 = C().Accent
+    ServerHopCurrentPlayers.ZIndex = 73
+
+    local ServerHopCurrentPing = createLabel(ServerHopCurrentCard, "PING  N/A", UDim2.fromOffset(105, 18), UDim2.new(1, -220, 0, 28), Enum.Font.GothamBold, 9)
+    ServerHopCurrentPing.TextColor3 = C().SubText
+    ServerHopCurrentPing.TextXAlignment = Enum.TextXAlignment.Right
+    ServerHopCurrentPing.ZIndex = 73
+
+    local ServerHopCurrentId = createLabel(ServerHopCurrentCard, "#CURRENT", UDim2.fromOffset(110, 15), UDim2.fromOffset(10, 58), Enum.Font.Gotham, 8)
+    ServerHopCurrentId.TextColor3 = C().SubText
+    ServerHopCurrentId.ZIndex = 73
+
+    local ServerHopCurrentFavorite = Instance.new("TextButton")
+    ServerHopCurrentFavorite.Parent = ServerHopCurrentCard
+    ServerHopCurrentFavorite.Size = UDim2.fromOffset(27, 27)
+    ServerHopCurrentFavorite.Position = UDim2.new(1, -145, 0, 5)
+    ServerHopCurrentFavorite.BackgroundColor3 = C().Surface2
+    ServerHopCurrentFavorite.BorderSizePixel = 0
+    ServerHopCurrentFavorite.Text = "☆"
+    ServerHopCurrentFavorite.TextColor3 = C().SubText
+    ServerHopCurrentFavorite.Font = Enum.Font.GothamBold
+    ServerHopCurrentFavorite.TextSize = 16
+    ServerHopCurrentFavorite.AutoButtonColor = false
+    ServerHopCurrentFavorite.ZIndex = 75
+    addCorner(ServerHopCurrentFavorite, 7)
+
+    local ServerHopCurrentPlayersButton = Instance.new("TextButton")
+    ServerHopCurrentPlayersButton.Parent = ServerHopCurrentCard
+    ServerHopCurrentPlayersButton.Size = UDim2.fromOffset(27, 27)
+    ServerHopCurrentPlayersButton.Position = UDim2.new(1, -110, 0, 5)
+    ServerHopCurrentPlayersButton.BackgroundColor3 = C().Surface2
+    ServerHopCurrentPlayersButton.BorderSizePixel = 0
+    ServerHopCurrentPlayersButton.Text = "👥"
+    ServerHopCurrentPlayersButton.TextColor3 = C().Text
+    ServerHopCurrentPlayersButton.Font = Enum.Font.GothamBold
+    ServerHopCurrentPlayersButton.TextSize = 13
+    ServerHopCurrentPlayersButton.AutoButtonColor = false
+    ServerHopCurrentPlayersButton.ZIndex = 75
+    addCorner(ServerHopCurrentPlayersButton, 7)
+
+    local ServerHopCurrentJoin = Instance.new("TextButton")
+    ServerHopCurrentJoin.Parent = ServerHopCurrentCard
+    ServerHopCurrentJoin.Size = UDim2.fromOffset(55, 27)
+    ServerHopCurrentJoin.Position = UDim2.new(1, -60, 0, 46)
+    ServerHopCurrentJoin.BackgroundColor3 = C().Surface2
+    ServerHopCurrentJoin.BorderSizePixel = 0
+    ServerHopCurrentJoin.Text = "ТЕКУЩИЙ"
+    ServerHopCurrentJoin.TextColor3 = C().SubText
+    ServerHopCurrentJoin.Font = Enum.Font.GothamBold
+    ServerHopCurrentJoin.TextSize = 7
+    ServerHopCurrentJoin.AutoButtonColor = false
+    ServerHopCurrentJoin.Active = false
+    ServerHopCurrentJoin.ZIndex = 75
+    addCorner(ServerHopCurrentJoin, 7)
+
+    --====================================================--
+    -- TABS
+    --====================================================--
+
+    local ServerHopTabs = Instance.new("Frame")
+    ServerHopTabs.Parent = ServerHopList
+    ServerHopTabs.Size = UDim2.new(1, -4, 0, 38)
+    ServerHopTabs.BackgroundTransparency = 1
+    ServerHopTabs.BorderSizePixel = 0
+    ServerHopTabs.ZIndex = 70
+
+    local ServerHopServersTab = Instance.new("TextButton")
+    ServerHopServersTab.Parent = ServerHopTabs
+    ServerHopServersTab.Size = UDim2.new(0.5, -3, 1, 0)
+    ServerHopServersTab.Position = UDim2.fromOffset(0, 0)
+    ServerHopServersTab.BackgroundColor3 = C().Accent
+    ServerHopServersTab.BorderSizePixel = 0
+    ServerHopServersTab.Text = "СЕРВЕРЫ"
+    ServerHopServersTab.TextColor3 = Color3.new(1, 1, 1)
+    ServerHopServersTab.Font = Enum.Font.GothamBold
+    ServerHopServersTab.TextSize = 10
+    ServerHopServersTab.AutoButtonColor = false
+    ServerHopServersTab.ZIndex = 71
+
+    addCorner(ServerHopServersTab, 9)
+
+    local ServerHopFavoritesTab = Instance.new("TextButton")
+    ServerHopFavoritesTab.Parent = ServerHopTabs
+    ServerHopFavoritesTab.Size = UDim2.new(0.5, -3, 1, 0)
+    ServerHopFavoritesTab.Position = UDim2.new(0.5, 3, 0, 0)
+    ServerHopFavoritesTab.BackgroundColor3 = C().Surface
+    ServerHopFavoritesTab.BorderSizePixel = 0
+    ServerHopFavoritesTab.Text = "★  ИЗБРАННОЕ"
+    ServerHopFavoritesTab.TextColor3 = C().Text
+    ServerHopFavoritesTab.Font = Enum.Font.GothamBold
+    ServerHopFavoritesTab.TextSize = 10
+    ServerHopFavoritesTab.AutoButtonColor = false
+    ServerHopFavoritesTab.ZIndex = 71
+
+    addCorner(ServerHopFavoritesTab, 9)
+    addStroke(ServerHopFavoritesTab, C().Stroke, 1, 0.15)
+
+    --====================================================--
+    -- SORT / REFRESH
+    --====================================================--
+
+    local ServerHopSortFrame = Instance.new("Frame")
+    ServerHopSortFrame.Parent = ServerHopList
+    ServerHopSortFrame.Size = UDim2.new(1, -4, 0, 38)
+    ServerHopSortFrame.BackgroundTransparency = 1
+    ServerHopSortFrame.BorderSizePixel = 0
+    ServerHopSortFrame.ZIndex = 70
+
+    local ServerHopSortPlayersMore = Instance.new("TextButton")
+    ServerHopSortPlayersMore.Parent = ServerHopSortFrame
+    ServerHopSortPlayersMore.Size = UDim2.new(0.5, -3, 1, 0)
+    ServerHopSortPlayersMore.Position = UDim2.fromOffset(0, 0)
+    ServerHopSortPlayersMore.BackgroundColor3 = C().Surface
+    ServerHopSortPlayersMore.BorderSizePixel = 0
+    ServerHopSortPlayersMore.Text = "↑  БОЛЬШЕ ИГРОКОВ"
+    ServerHopSortPlayersMore.TextColor3 = C().Text
+    ServerHopSortPlayersMore.Font = Enum.Font.GothamBold
+    ServerHopSortPlayersMore.TextSize = 9
+    ServerHopSortPlayersMore.AutoButtonColor = false
+    ServerHopSortPlayersMore.ZIndex = 71
+
+    addCorner(ServerHopSortPlayersMore, 9)
+    addStroke(ServerHopSortPlayersMore, C().Stroke, 1, 0.15)
+
+    local ServerHopSortPlayersLess = Instance.new("TextButton")
+    ServerHopSortPlayersLess.Parent = ServerHopSortFrame
+    ServerHopSortPlayersLess.Size = UDim2.new(0.5, -3, 1, 0)
+    ServerHopSortPlayersLess.Position = UDim2.new(0.5, 3, 0, 0)
+    ServerHopSortPlayersLess.BackgroundColor3 = C().Surface
+    ServerHopSortPlayersLess.BorderSizePixel = 0
+    ServerHopSortPlayersLess.Text = "↓  МЕНЬШЕ ИГРОКОВ"
+    ServerHopSortPlayersLess.TextColor3 = C().Text
+    ServerHopSortPlayersLess.Font = Enum.Font.GothamBold
+    ServerHopSortPlayersLess.TextSize = 9
+    ServerHopSortPlayersLess.AutoButtonColor = false
+    ServerHopSortPlayersLess.ZIndex = 71
+
+    addCorner(ServerHopSortPlayersLess, 9)
+    addStroke(ServerHopSortPlayersLess, C().Stroke, 1, 0.15)
+
+    local ServerHopRefreshButton = Instance.new("TextButton")
+    ServerHopRefreshButton.Parent = ServerHopList
+    ServerHopRefreshButton.Size = UDim2.new(1, -4, 0, 38)
+    ServerHopRefreshButton.BackgroundColor3 = C().Accent
+    ServerHopRefreshButton.BorderSizePixel = 0
+    ServerHopRefreshButton.Text = "↻  ОБНОВИТЬ"
+    ServerHopRefreshButton.TextColor3 = Color3.new(1, 1, 1)
+    ServerHopRefreshButton.Font = Enum.Font.GothamBold
+    ServerHopRefreshButton.TextSize = 11
+    ServerHopRefreshButton.AutoButtonColor = false
+    ServerHopRefreshButton.ZIndex = 70
+
+    addCorner(ServerHopRefreshButton, 9)
+
+    --====================================================--
+    -- PAGINATION
+    --====================================================--
+
+    local ServerHopPagination = Instance.new("Frame")
+    ServerHopPagination.Parent = ServerHopList
+    ServerHopPagination.Size = UDim2.new(1, -4, 0, 34)
+    ServerHopPagination.BackgroundTransparency = 1
+    ServerHopPagination.BorderSizePixel = 0
+    ServerHopPagination.ZIndex = 70
+
+    local ServerHopPrevButton = Instance.new("TextButton")
+    ServerHopPrevButton.Parent = ServerHopPagination
+    ServerHopPrevButton.Size = UDim2.fromOffset(70, 30)
+    ServerHopPrevButton.Position = UDim2.fromOffset(0, 2)
+    ServerHopPrevButton.BackgroundColor3 = C().Surface
+    ServerHopPrevButton.BorderSizePixel = 0
+    ServerHopPrevButton.Text = "‹ НАЗАД"
+    ServerHopPrevButton.TextColor3 = C().Text
+    ServerHopPrevButton.Font = Enum.Font.GothamBold
+    ServerHopPrevButton.TextSize = 9
+    ServerHopPrevButton.AutoButtonColor = false
+    ServerHopPrevButton.ZIndex = 71
+
+    addCorner(ServerHopPrevButton, 8)
+    addStroke(ServerHopPrevButton, C().Stroke, 1, 0.15)
+
+    local ServerHopPageLabel = createLabel(
+        ServerHopPagination,
+        "1 / 1",
+        UDim2.new(1, -160, 1, 0),
+        UDim2.fromOffset(80, 0),
+        Enum.Font.GothamBold,
+        9
+    )
+
+    ServerHopPageLabel.TextColor3 = C().SubText
+    ServerHopPageLabel.TextXAlignment = Enum.TextXAlignment.Center
+    ServerHopPageLabel.ZIndex = 71
+
+    local ServerHopNextButton = Instance.new("TextButton")
+    ServerHopNextButton.Parent = ServerHopPagination
+    ServerHopNextButton.Size = UDim2.fromOffset(70, 30)
+    ServerHopNextButton.Position = UDim2.new(1, -70, 0, 2)
+    ServerHopNextButton.BackgroundColor3 = C().Surface
+    ServerHopNextButton.BorderSizePixel = 0
+    ServerHopNextButton.Text = "ВПЕРЁД ›"
+    ServerHopNextButton.TextColor3 = C().Text
+    ServerHopNextButton.Font = Enum.Font.GothamBold
+    ServerHopNextButton.TextSize = 9
+    ServerHopNextButton.AutoButtonColor = false
+    ServerHopNextButton.ZIndex = 71
+
+    addCorner(ServerHopNextButton, 8)
+    addStroke(ServerHopNextButton, C().Stroke, 1, 0.15)
+
+    --====================================================--
+    -- DYNAMIC CONTAINER
+    --====================================================--
+
+    local ServerHopDynamicContainer = Instance.new("Frame")
+    ServerHopDynamicContainer.Parent = ServerHopList
+    ServerHopDynamicContainer.Size = UDim2.new(1, -4, 0, 0)
+    ServerHopDynamicContainer.BackgroundTransparency = 1
+    ServerHopDynamicContainer.BorderSizePixel = 0
+    ServerHopDynamicContainer.AutomaticSize = Enum.AutomaticSize.Y
+    ServerHopDynamicContainer.ZIndex = 70
+
+    local ServerHopDynamicLayout = Instance.new("UIListLayout")
+    ServerHopDynamicLayout.Parent = ServerHopDynamicContainer
+    ServerHopDynamicLayout.Padding = UDim.new(0, 5)
+    ServerHopDynamicLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    --====================================================--
+    -- HELPERS
+    --====================================================--
+
+    local function serverHopShortId(id)
+        if not id then
+            return "Unknown"
+        end
+
+        return string.sub(id, 1, 8)
+    end
+
+    local function serverHopDisplayName(server)
+        if server.name and server.name ~= "" then
+            return server.name
+        end
+
+        return "Server " .. serverHopShortId(server.id)
+    end
+
+    local function serverHopIsFavorite(serverId)
+        return serverHopFavoriteServers[serverId] ~= nil
+    end
+
+    local function serverHopPingColor(ping)
+        ping = tonumber(ping)
+
+        if not ping then
+            return C().SubText
+        end
+
+        if ping <= 80 then
+            return C().Green
+        elseif ping <= 150 then
+            return C().Orange
+        end
+
+        return C().Red
+    end
+
+    local function serverHopPingText(server)
+        local ping = tonumber(server.ping)
+
+        if ping then
+            return "PING  " .. tostring(math.floor(ping + 0.5)) .. " ms"
+        end
+
+        return "PING  N/A"
+    end
+
+    local function serverHopGetCurrentPing()
+        local success, value = pcall(function()
+            local stats = game:GetService("Stats")
+            local network = stats:FindFirstChild("Network")
+            local serverStats = network and network:FindFirstChild("ServerStatsItem")
+            local dataPing = serverStats and serverStats:FindFirstChild("Data Ping")
+            if not dataPing then return nil end
+            return tonumber(dataPing:GetValue())
+        end)
+        return success and value or nil
+    end
+
+    local function serverHopBuildCurrentServer()
+        return {
+            id = game.JobId,
+            name = "ТЕКУЩИЙ СЕРВЕР",
+            playing = #Players:GetPlayers(),
+            maxPlayers = Players.MaxPlayers,
+            ping = serverHopGetCurrentPing(),
+            isCurrent = true
+        }
+    end
+
+    local function serverHopUpdateCurrentCard()
+        local current = serverHopBuildCurrentServer()
+        local count = tonumber(current.playing) or 0
+        local maxCount = tonumber(current.maxPlayers) or "?"
+        ServerHopCurrentPlayers.Text = "●  " .. tostring(count) .. " / " .. tostring(maxCount) .. " ИГРОКОВ"
+        ServerHopCurrentPing.Text = serverHopPingText(current)
+        ServerHopCurrentPing.TextColor3 = serverHopPingColor(current.ping)
+        ServerHopCurrentId.Text = "#" .. serverHopShortId(current.id)
+        local favorite = serverHopIsFavorite(current.id)
+        ServerHopCurrentFavorite.Text = favorite and "★" or "☆"
+        ServerHopCurrentFavorite.TextColor3 = favorite and C().Orange or C().SubText
+    end
+
+    local function serverHopSetFavorite(server)
+        if not server or not server.id then
+            return
+        end
+
+        if serverHopFavoriteServers[server.id] then
+            serverHopFavoriteServers[server.id] = nil
+            saveServerHopFavorites()
+
+            showNotification(
+                "Сервер удалён из избранного",
+                C().Red
+            )
+        else
+            serverHopFavoriteServers[server.id] = {
+                name = serverHopDisplayName(server),
+                savedAt = os.time()
+            }
+
+            saveServerHopFavorites()
+
+            showNotification(
+                "Сервер добавлен в избранное",
+                C().Green
+            )
+        end
+    end
+
+    local serverHopOpenPlayers
+
+    ServerHopCurrentFavorite.MouseButton1Click:Connect(function()
+        serverHopSetFavorite(serverHopBuildCurrentServer())
+        serverHopUpdateCurrentCard()
+    end)
+
+    ServerHopCurrentPlayersButton.MouseButton1Click:Connect(function()
+        serverHopOpenPlayers(serverHopBuildCurrentServer())
+    end)
+
+    setupButtonFeedback(ServerHopCurrentFavorite)
+    setupButtonFeedback(ServerHopCurrentPlayersButton)
+
+    local function serverHopTeleport(serverId)
+        if not serverId or serverId == "" then
+            showNotification("Некорректный ID сервера", C().Red)
+            return
+        end
+
+        if serverId == game.JobId then
+            showNotification("Это текущий сервер", C().Orange)
+            return
+        end
+
+        showNotification(
+            "Подключение к серверу...",
+            C().Accent
+        )
+
+        local success, errorMessage = pcall(function()
+            ServerHopTeleportService:TeleportToPlaceInstance(
+                game.PlaceId,
+                serverId,
+                LocalPlayer
+            )
+        end)
+
+        if not success then
+            showNotification(
+                "Не удалось подключиться",
+                C().Red
+            )
+
+            warn(
+                "[MEDA HUB] Server Hop error:",
+                errorMessage
+            )
+        end
+    end
+
+    local function serverHopClearRows()
+        for _, row in ipairs(serverHopRows) do
+            if row and row.Parent then
+                row:Destroy()
+            end
+        end
+
+        table.clear(serverHopRows)
+    end
+
+    local function serverHopGetFavoriteList()
+        local list = {}
+
+        for serverId, savedData in pairs(serverHopFavoriteServers) do
+            local currentData = nil
+
+            if serverId == game.JobId then
+                currentData = serverHopBuildCurrentServer()
+            end
+
+            for _, server in ipairs(serverHopServers) do
+                if server.id == serverId then
+                    currentData = server
+                    break
+                end
+            end
+
+            if currentData then
+                table.insert(list, currentData)
+            else
+                table.insert(list, {
+                    id = serverId,
+                    name =
+                        savedData.name
+                        or ("Server " .. serverHopShortId(serverId)),
+                    playing = nil,
+                    maxPlayers = nil,
+                    ping = nil
+                })
+            end
+        end
+
+        table.sort(list, function(a, b)
+            return tostring(a.name) < tostring(b.name)
+        end)
+
+        return list
+    end
+
+    --====================================================--
+    -- SERVER ROW
+    --====================================================--
+
+    local ServerHopPlayersPanel,
+        ServerHopPlayersHeaderFrame,
+        ServerHopPlayersCloseButton,
+        ServerHopPlayersList =
+        createPanel("ServerHopPlayersPanel", "ИГРОКИ СЕРВЕРА")
+
+    local ServerHopPlayersInfo = createLabel(
+        ServerHopPlayersList, "Выберите сервер",
+        UDim2.new(1, -4, 0, 24), UDim2.fromOffset(0, 0),
+        Enum.Font.Gotham, 10
+    )
+    ServerHopPlayersInfo.TextColor3 = C().SubText
+    ServerHopPlayersInfo.ZIndex = 90
+
+    local ServerHopPlayersDynamic = Instance.new("Frame")
+    ServerHopPlayersDynamic.Parent = ServerHopPlayersList
+    ServerHopPlayersDynamic.Size = UDim2.new(1, -4, 0, 0)
+    ServerHopPlayersDynamic.BackgroundTransparency = 1
+    ServerHopPlayersDynamic.BorderSizePixel = 0
+    ServerHopPlayersDynamic.AutomaticSize = Enum.AutomaticSize.Y
+    ServerHopPlayersDynamic.ZIndex = 90
+
+    local ServerHopPlayersLayout = Instance.new("UIListLayout")
+    ServerHopPlayersLayout.Parent = ServerHopPlayersDynamic
+    ServerHopPlayersLayout.Padding = UDim.new(0, 4)
+    ServerHopPlayersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local function serverHopClearPlayerRows()
+        for _, child in ipairs(ServerHopPlayersDynamic:GetChildren()) do
+            if child:IsA("GuiObject") then child:Destroy() end
+        end
+    end
+
+    local function serverHopAddPlayerRow(playerData)
+        local row = Instance.new("Frame")
+        row.Parent = ServerHopPlayersDynamic
+        row.Size = UDim2.new(1, 0, 0, 46)
+        row.BackgroundColor3 = C().Surface
+        row.BorderSizePixel = 0
+        row.ZIndex = 91
+        addCorner(row, 8)
+        addStroke(row, C().Stroke, 1, 0.15)
+
+        local avatar = Instance.new("ImageLabel")
+        avatar.Parent = row
+        avatar.Size = UDim2.fromOffset(36, 36)
+        avatar.Position = UDim2.fromOffset(5, 5)
+        avatar.BackgroundColor3 = C().Surface2
+        avatar.BorderSizePixel = 0
+        avatar.Image = playerData.avatar or ""
+        avatar.ZIndex = 92
+        addCorner(avatar, 18)
+
+        local display = playerData.displayName or playerData.name or "Unknown"
+        local username = playerData.name and ("@" .. playerData.name) or ""
+        local label = createLabel(
+            row, display .. (username ~= "" and ("  " .. username) or ""),
+            UDim2.new(1, -50, 1, 0), UDim2.fromOffset(48, 0),
+            Enum.Font.GothamBold, 10
+        )
+        label.TextColor3 = C().Text
+        label.TextTruncate = Enum.TextTruncate.AtEnd
+        label.ZIndex = 92
+    end
+
+    serverHopOpenPlayers = function(server)
+        serverHopClearPlayerRows()
+        openPanel(ServerHopPlayersPanel)
+
+        if server.id == game.JobId or server.isCurrent then
+            local currentPlayers = Players:GetPlayers()
+            ServerHopPlayersInfo.Text = "Игроков: " .. tostring(#currentPlayers)
+            for _, player in ipairs(currentPlayers) do
+                local avatar = ""
+                pcall(function()
+                    avatar = Players:GetUserThumbnailAsync(
+                        player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48
+                    )
+                end)
+                serverHopAddPlayerRow({
+                    name = player.Name, displayName = player.DisplayName, avatar = avatar
+                })
+            end
+            return
+        end
+
+        ServerHopPlayersInfo.Text = "Игроки удалённого сервера недоступны через стандартный API Roblox"
+        local note = createLabel(
+            ServerHopPlayersDynamic,
+            "Roblox отдаёт для удалённых публичных серверов количество игроков, но не их имена/ID. Поэтому показывать выдуманный список было бы неправильно.",
+            UDim2.new(1, 0, 0, 80), UDim2.fromOffset(0, 0),
+            Enum.Font.Gotham, 10
+        )
+        note.TextColor3 = C().SubText
+        note.TextWrapped = true
+        note.TextXAlignment = Enum.TextXAlignment.Center
+        note.TextYAlignment = Enum.TextYAlignment.Center
+        note.ZIndex = 91
+    end
+
+    ServerHopPlayersCloseButton.MouseButton1Click:Connect(function()
+        closePanel(ServerHopPlayersPanel)
+    end)
+    ServerHopPlayersHeaderFrame.InputBegan:Connect(function(input)
+        beginDrag(ServerHopPlayersPanel, input)
+    end)
+    ServerHopPlayersPanel.Visible = false
+
+    local function createServerHopRow(server)
+        local row = Instance.new("Frame")
+        row.Parent = ServerHopDynamicContainer
+        row.Size = UDim2.new(1, 0, 0, 82)
+        row.BackgroundColor3 = C().Surface
+        row.BorderSizePixel = 0
+        row.ZIndex = 71
+
+        addCorner(row, 10)
+        addStroke(row, C().Stroke, 1, 0.15)
+
+        local nameLabel = createLabel(
+            row,
+            serverHopDisplayName(server),
+            UDim2.new(1, -165, 0, 21),
+            UDim2.fromOffset(10, 5),
+            Enum.Font.GothamBold,
+            11
+        )
+
+        nameLabel.TextColor3 = C().Text
+        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLabel.ZIndex = 73
+
+        -- Более заметное количество игроков.
+        local playerCount = tonumber(server.playing)
+
+        local playersLabel = createLabel(
+            row,
+            playerCount
+                and (
+                    "●  "
+                    .. tostring(playerCount)
+                    .. " / "
+                    .. tostring(tonumber(server.maxPlayers) or "?")
+                    .. " ИГРОКОВ"
+                )
+                or "●  ИГРОКОВ  N/A",
+            UDim2.new(0.62, 0, 0, 20),
+            UDim2.fromOffset(10, 29),
+            Enum.Font.GothamBold,
+            10
+        )
+
+        playersLabel.TextColor3 = C().Accent
+        playersLabel.ZIndex = 73
+
+        local pingLabel = createLabel(
+            row,
+            serverHopPingText(server),
+            UDim2.fromOffset(50, 18),
+            UDim2.new(1, -115, 0, 28),
+            Enum.Font.GothamBold,
+            9
+        )
+
+        pingLabel.TextColor3 = serverHopPingColor(server.ping)
+        pingLabel.TextXAlignment = Enum.TextXAlignment.Right
+        pingLabel.ZIndex = 73
+
+        local idLabel = createLabel(
+            row,
+            "#" .. serverHopShortId(server.id),
+            UDim2.fromOffset(100, 15),
+            UDim2.fromOffset(10, 58),
+            Enum.Font.Gotham,
+            8
+        )
+
+        idLabel.TextColor3 = C().SubText
+        idLabel.ZIndex = 73
+
+        local favoriteButton = Instance.new("TextButton")
+        favoriteButton.Parent = row
+        favoriteButton.Size = UDim2.fromOffset(27, 27)
+        favoriteButton.Position = UDim2.new(1, -145, 0, 5)
+        favoriteButton.BackgroundColor3 = C().Surface2
+        favoriteButton.BorderSizePixel = 0
+        favoriteButton.Text =
+            serverHopIsFavorite(server.id)
+            and "★"
+            or "☆"
+        favoriteButton.TextColor3 =
+            serverHopIsFavorite(server.id)
+            and C().Orange
+            or C().SubText
+        favoriteButton.Font = Enum.Font.GothamBold
+        favoriteButton.TextSize = 16
+        favoriteButton.AutoButtonColor = false
+        favoriteButton.ZIndex = 75
+
+        addCorner(favoriteButton, 7)
+
+        favoriteButton.MouseButton1Click:Connect(function()
+            serverHopSetFavorite(server)
+
+            favoriteButton.Text =
+                serverHopIsFavorite(server.id)
+                and "★"
+                or "☆"
+
+            favoriteButton.TextColor3 =
+                serverHopIsFavorite(server.id)
+                and C().Orange
+                or C().SubText
+
+            if serverHopTab == "FAVORITES" then
+                task.defer(function()
+                    if ServerHopPanel.Visible then
+                        -- Только при открытой вкладке избранного.
+                        serverHopClearRows()
+                        -- render defined below; schedule through flag.
+                        serverHopPage = 1
+                        local list = serverHopGetFavoriteList()
+
+                        local startIndex =
+                            ((serverHopPage - 1) * SERVER_HOP_ROWS_PER_PAGE)
+                            + 1
+
+                        local endIndex =
+                            math.min(
+                                startIndex + SERVER_HOP_ROWS_PER_PAGE - 1,
+                                #list
+                            )
+
+                        for index = startIndex, endIndex do
+                            createServerHopRow(list[index])
+                        end
+                    end
+                end)
+            end
+        end)
+
+        local joinButton = Instance.new("TextButton")
+        joinButton.Parent = row
+        joinButton.Size = UDim2.fromOffset(55, 27)
+        joinButton.Position = UDim2.new(1, -60, 0, 46)
+        joinButton.BackgroundColor3 = C().Accent
+        joinButton.BorderSizePixel = 0
+        joinButton.Text = "JOIN"
+        joinButton.TextColor3 = Color3.new(1, 1, 1)
+        joinButton.Font = Enum.Font.GothamBold
+        joinButton.TextSize = 8
+        joinButton.AutoButtonColor = false
+        joinButton.ZIndex = 75
+
+        addCorner(joinButton, 7)
+
+        joinButton.MouseButton1Click:Connect(function()
+            serverHopTeleport(server.id)
+        end)
+
+        setupButtonFeedback(favoriteButton)
+        setupButtonFeedback(joinButton)
+
+        table.insert(serverHopRows, row)
+
+        return row
+    end
+
+    --====================================================--
+    -- SORT
+    --====================================================--
+
+    local function serverHopSortServers()
+        table.sort(serverHopServers, function(a, b)
+            local aPlayers = tonumber(a.playing) or 0
+            local bPlayers = tonumber(b.playing) or 0
+
+            if aPlayers == bPlayers then
+                return tostring(a.id) < tostring(b.id)
+            end
+
+            if serverHopSortMode == "DESC" then
+                return aPlayers > bPlayers
+            end
+
+            return aPlayers < bPlayers
+        end)
+    end
+
+    --====================================================--
+    -- RENDER ONLY CURRENT PAGE
+    --====================================================--
+
+    local function serverHopGetCurrentList()
+        if serverHopTab == "FAVORITES" then
+            return serverHopGetFavoriteList()
+        end
+
+        return serverHopServers
+    end
+
+    local function serverHopRender()
+        serverHopClearRows()
+
+        local list = serverHopGetCurrentList()
+        local totalPages =
+            math.max(
+                1,
+                math.ceil(#list / SERVER_HOP_ROWS_PER_PAGE)
+            )
+
+        if serverHopPage > totalPages then
+            serverHopPage = totalPages
+        end
+
+        if serverHopPage < 1 then
+            serverHopPage = 1
+        end
+
+        local startIndex =
+            ((serverHopPage - 1) * SERVER_HOP_ROWS_PER_PAGE)
+            + 1
+
+        local endIndex =
+            math.min(
+                startIndex + SERVER_HOP_ROWS_PER_PAGE - 1,
+                #list
+            )
+
+        if #list == 0 then
+            local emptyLabel = createLabel(
+                ServerHopDynamicContainer,
+                serverHopTab == "FAVORITES"
+                    and "Нет сохранённых серверов"
+                    or "Серверы не найдены",
+                UDim2.new(1, 0, 0, 50),
+                UDim2.fromOffset(0, 0),
+                Enum.Font.GothamBold,
+                10
+            )
+
+            emptyLabel.TextColor3 = C().SubText
+            emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
+            emptyLabel.ZIndex = 72
+
+            table.insert(serverHopRows, emptyLabel)
+        else
+            for index = startIndex, endIndex do
+                createServerHopRow(list[index])
+            end
+        end
+
+        ServerHopPageLabel.Text =
+            tostring(serverHopPage)
+            .. " / "
+            .. tostring(totalPages)
+
+        ServerHopPrevButton.BackgroundColor3 =
+            serverHopPage > 1
+            and C().Surface
+            or C().Surface2
+
+        ServerHopNextButton.BackgroundColor3 =
+            serverHopPage < totalPages
+            and C().Surface
+            or C().Surface2
+
+        if serverHopTab == "FAVORITES" then
+            ServerHopInfo.Text =
+                "Избранных серверов: "
+                .. tostring(#list)
+        else
+            ServerHopInfo.Text =
+                "Серверов: "
+                .. tostring(#list)
+                .. "  •  Страница "
+                .. tostring(serverHopPage)
+                .. "/"
+                .. tostring(totalPages)
+        end
+    end
+
+    --====================================================--
+    -- HTTP
+    --====================================================--
+
+    local function serverHopHttpGet(url)
+        local requestFunction =
+            (syn and syn.request)
+            or (http and http.request)
+            or (http_request)
+            or (request)
+
+        if type(requestFunction) == "function" then
+            local success, response = pcall(function()
+                return requestFunction({
+                    Url = url,
+                    Method = "GET"
+                })
+            end)
+
+            if success and type(response) == "table" then
+                local body =
+                    response.Body
+                    or response.body
+
+                if type(body) == "string" and body ~= "" then
+                    return body
+                end
+            end
+        end
+
+        if type(game.HttpGet) == "function" then
+            return game:HttpGet(url)
+        end
+
+        error("HTTP request function is unavailable")
+    end
+
+    --====================================================--
+    -- FETCH
+    --====================================================--
+
+    local function serverHopFetchServers()
+        if serverHopLoading then
+            return
+        end
+
+        serverHopLoading = true
+
+        ServerHopRefreshButton.Text = "↻  ЗАГРУЗКА..."
+        ServerHopRefreshButton.Active = false
+        ServerHopInfo.Text = "Получение списка серверов..."
+
+        local fetchedServers = {}
+        local cursor = nil
+
+        local success, errorMessage = pcall(function()
+
+            for page = 1, SERVER_HOP_MAX_PAGES do
+
+                local url =
+                    SERVER_HOP_API
+                    .. "?sortOrder=Desc"
+                    .. "&excludeFullGames=false"
+                    .. "&limit="
+                    .. tostring(SERVER_HOP_PAGE_LIMIT)
+
+                if cursor and cursor ~= "" then
+                    url =
+                        url
+                        .. "&cursor="
+                        .. ServerHopHttpService:UrlEncode(cursor)
+                end
+
+                local response = serverHopHttpGet(url)
+                local decoded =
+                    ServerHopHttpService:JSONDecode(response)
+
+                if type(decoded) ~= "table" then
+                    break
+                end
+
+                if type(decoded.data) == "table" then
+                    for _, server in ipairs(decoded.data) do
+                        if type(server) == "table"
+                            and type(server.id) == "string"
+                            and server.id ~= game.JobId
+                        then
+                            fetchedServers[server.id] = {
+                                id = server.id,
+                                name =
+                                    server.name
+                                    or (
+                                        "Server "
+                                        .. serverHopShortId(server.id)
+                                    ),
+                                playing =
+                                    tonumber(server.playing) or 0,
+                                maxPlayers =
+                                    tonumber(server.maxPlayers) or 0,
+                                -- Roblox public server endpoint can
+                                -- provide the server's reported ping.
+                                ping =
+                                    tonumber(server.ping)
+                            }
+                        end
+                    end
+                end
+
+                cursor = decoded.nextPageCursor
+
+                if not cursor or cursor == "" then
+                    break
+                end
+
+                -- Маленькая пауза между страницами, чтобы не
+                -- забивать главный поток.
+                task.wait(0.1)
+            end
+        end)
+
+        if not success then
+            serverHopLoading = false
+            ServerHopRefreshButton.Text = "↻  ОБНОВИТЬ"
+            ServerHopRefreshButton.Active = true
+            ServerHopInfo.Text = "Ошибка получения серверов"
+
+            showNotification(
+                "Не удалось получить серверы",
+                C().Red
+            )
+
+            warn(
+                "[MEDA HUB] Server list error:",
+                errorMessage
+            )
+
+            return
+        end
+
+        table.clear(serverHopServers)
+
+        -- Текущий сервер отображается отдельной закреплённой карточкой сверху.
+        for _, server in pairs(fetchedServers) do
+            table.insert(serverHopServers, server)
+        end
+
+        serverHopSortServers()
+
+        serverHopPage = 1
+        serverHopRender()
+
+        serverHopLoading = false
+
+        ServerHopRefreshButton.Text = "↻  ОБНОВИТЬ"
+        ServerHopRefreshButton.Active = true
+
+        showNotification(
+            "Список серверов обновлён",
+            C().Green
+        )
+    end
+
+    --====================================================--
+    -- TAB UPDATE
+    --====================================================--
+
+    local function serverHopUpdateTabs()
+        if serverHopTab == "SERVERS" then
+            ServerHopServersTab.BackgroundColor3 = C().Accent
+            ServerHopServersTab.TextColor3 = Color3.new(1, 1, 1)
+
+            ServerHopFavoritesTab.BackgroundColor3 = C().Surface
+            ServerHopFavoritesTab.TextColor3 = C().Text
+
+            ServerHopSortFrame.Visible = true
+        else
+            ServerHopServersTab.BackgroundColor3 = C().Surface
+            ServerHopServersTab.TextColor3 = C().Text
+
+            ServerHopFavoritesTab.BackgroundColor3 = C().Accent
+            ServerHopFavoritesTab.TextColor3 = Color3.new(1, 1, 1)
+
+            ServerHopSortFrame.Visible = false
+        end
+    end
+
+    --====================================================--
+    -- CONTROLS
+    --====================================================--
+
+    ServerHopServersTab.MouseButton1Click:Connect(function()
+        serverHopTab = "SERVERS"
+        serverHopPage = 1
+
+        serverHopUpdateTabs()
+        serverHopRender()
+    end)
+
+    ServerHopFavoritesTab.MouseButton1Click:Connect(function()
+        serverHopTab = "FAVORITES"
+        serverHopPage = 1
+
+        serverHopUpdateTabs()
+        serverHopRender()
+    end)
+
+    ServerHopSortPlayersMore.MouseButton1Click:Connect(function()
+        serverHopSortMode = "DESC"
+        serverHopPage = 1
+
+        serverHopSortServers()
+        serverHopRender()
+    end)
+
+    ServerHopSortPlayersLess.MouseButton1Click:Connect(function()
+        serverHopSortMode = "ASC"
+        serverHopPage = 1
+
+        serverHopSortServers()
+        serverHopRender()
+    end)
+
+    ServerHopPrevButton.MouseButton1Click:Connect(function()
+        if serverHopPage > 1 then
+            serverHopPage = serverHopPage - 1
+            serverHopRender()
+        end
+    end)
+
+    ServerHopNextButton.MouseButton1Click:Connect(function()
+        local list = serverHopGetCurrentList()
+
+        local totalPages =
+            math.max(
+                1,
+                math.ceil(#list / SERVER_HOP_ROWS_PER_PAGE)
+            )
+
+        if serverHopPage < totalPages then
+            serverHopPage = serverHopPage + 1
+            serverHopRender()
+        end
+    end)
+
+    ServerHopRefreshButton.MouseButton1Click:Connect(function()
+        task.spawn(serverHopFetchServers)
+    end)
+
+    ServerHopCloseButton.MouseButton1Click:Connect(function()
+        closePanel(ServerHopPanel)
+        MenuFrame.Visible = true
+    end)
+
+    Players.PlayerAdded:Connect(function()
+        serverHopUpdateCurrentCard()
+        if ServerHopPlayersPanel.Visible then
+            local current = serverHopBuildCurrentServer()
+            serverHopOpenPlayers(current)
+        end
+    end)
+
+    Players.PlayerRemoving:Connect(function()
+        task.defer(serverHopUpdateCurrentCard)
+        if ServerHopPlayersPanel.Visible then
+            task.defer(function()
+                local current = serverHopBuildCurrentServer()
+                serverHopOpenPlayers(current)
+            end)
+        end
+    end)
+
+    ServerHopHeaderFrame.InputBegan:Connect(function(input)
+        beginDrag(ServerHopPanel, input)
+    end)
+
+    --====================================================--
+    -- MAIN MENU BUTTON
+    --====================================================--
+
+    local ServerHopButton = Instance.new("TextButton")
+    ServerHopButton.Parent = Content
+    ServerHopButton.Size = UDim2.fromOffset(198, 58)
+    ServerHopButton.Position = UDim2.fromOffset(0, 230)
+    ServerHopButton.BackgroundColor3 = C().Surface
+    ServerHopButton.BorderSizePixel = 0
+    ServerHopButton.Text = ""
+    ServerHopButton.AutoButtonColor = false
+    ServerHopButton.ZIndex = 12
+
+    addCorner(ServerHopButton, 11)
+    addStroke(
+        ServerHopButton,
+        C().Stroke,
+        1,
+        0.2
+    )
+
+    local ServerHopIcon = Instance.new("Frame")
+    ServerHopIcon.Parent = ServerHopButton
+    ServerHopIcon.Size = UDim2.fromOffset(36, 36)
+    ServerHopIcon.Position = UDim2.fromOffset(10, 11)
+    ServerHopIcon.BackgroundColor3 = C().Surface2
+    ServerHopIcon.BorderSizePixel = 0
+    ServerHopIcon.ZIndex = 13
+
+    addCorner(ServerHopIcon, 9)
+
+    local ServerHopIconText = createLabel(
+        ServerHopIcon,
+        "⇄",
+        UDim2.fromScale(1, 1),
+        UDim2.fromScale(0, 0),
+        Enum.Font.GothamBold,
+        17
+    )
+
+    ServerHopIconText.TextXAlignment =
+        Enum.TextXAlignment.Center
+    ServerHopIconText.TextColor3 = C().Accent
+    ServerHopIconText.ZIndex = 14
+
+    local ServerHopTitle = createLabel(
+        ServerHopButton,
+        "Server Hop",
+        UDim2.fromOffset(125, 21),
+        UDim2.fromOffset(56, 8),
+        Enum.Font.GothamBold,
+        12
+    )
+
+    ServerHopTitle.ZIndex = 14
+
+    local ServerHopStatus = createLabel(
+        ServerHopButton,
+        "Список серверов",
+        UDim2.fromOffset(125, 18),
+        UDim2.fromOffset(56, 31),
+        Enum.Font.Gotham,
+        10
+    )
+
+    ServerHopStatus.TextColor3 = C().SubText
+    ServerHopStatus.ZIndex = 14
+
+    setupButtonFeedback(ServerHopButton)
+
+    ServerHopButton.MouseButton1Click:Connect(function()
+        MenuFrame.Visible = false
+        openPanel(ServerHopPanel)
+        serverHopUpdateCurrentCard()
+
+        -- Открытие панели больше не рендерит сотни объектов.
+        -- Рисуем только текущую страницу и параллельно обновляем данные.
+        serverHopTab = "SERVERS"
+        serverHopPage = 1
+        serverHopUpdateTabs()
+        serverHopRender()
+
+        task.spawn(serverHopFetchServers)
+    end)
+
+    --====================================================--
+    -- THEME SUPPORT
+    --====================================================--
+
+    ThemeButton.MouseButton1Click:Connect(function()
+        task.defer(function()
+            if not ServerHopPanel
+                or not ServerHopPanel.Parent
+            then
+                return
+            end
+
+            ServerHopPanel.BackgroundColor3 =
+                C().Background
+
+            ServerHopHeaderFrame.BackgroundColor3 =
+                C().Header
+
+            ServerHopInfo.TextColor3 =
+                C().SubText
+
+            ServerHopServersTab.BackgroundColor3 =
+                serverHopTab == "SERVERS"
+                and C().Accent
+                or C().Surface
+
+            ServerHopServersTab.TextColor3 =
+                serverHopTab == "SERVERS"
+                and Color3.new(1, 1, 1)
+                or C().Text
+
+            ServerHopFavoritesTab.BackgroundColor3 =
+                serverHopTab == "FAVORITES"
+                and C().Accent
+                or C().Surface
+
+            ServerHopFavoritesTab.TextColor3 =
+                serverHopTab == "FAVORITES"
+                and Color3.new(1, 1, 1)
+                or C().Text
+
+            ServerHopSortPlayersMore.BackgroundColor3 =
+                C().Surface
+
+            ServerHopSortPlayersMore.TextColor3 =
+                C().Text
+
+            ServerHopSortPlayersLess.BackgroundColor3 =
+                C().Surface
+
+            ServerHopSortPlayersLess.TextColor3 =
+                C().Text
+
+            ServerHopRefreshButton.BackgroundColor3 =
+                C().Accent
+
+            ServerHopPrevButton.BackgroundColor3 =
+                C().Surface
+
+            ServerHopNextButton.BackgroundColor3 =
+                C().Surface
+
+            ServerHopIcon.BackgroundColor3 =
+                C().Surface2
+
+            ServerHopIconText.TextColor3 =
+                C().Accent
+
+            ServerHopTitle.TextColor3 =
+                C().Text
+
+            ServerHopStatus.TextColor3 =
+                C().SubText
+
+            ServerHopPlayersPanel.BackgroundColor3 =
+                C().Background
+
+            ServerHopPlayersHeaderFrame.BackgroundColor3 =
+                C().Header
+
+            ServerHopPlayersInfo.TextColor3 =
+                C().SubText
+            ServerHopCurrentCard.BackgroundColor3 = C().Surface
+            ServerHopCurrentTitle.TextColor3 = C().Text
+            ServerHopCurrentPlayers.TextColor3 = C().Accent
+            ServerHopCurrentPing.TextColor3 = serverHopPingColor(serverHopBuildCurrentServer().ping)
+            ServerHopCurrentId.TextColor3 = C().SubText
+            ServerHopCurrentFavorite.BackgroundColor3 = C().Surface2
+            ServerHopCurrentPlayersButton.BackgroundColor3 = C().Surface2
+            ServerHopCurrentPlayersButton.TextColor3 = C().Text
+            ServerHopCurrentJoin.BackgroundColor3 = C().Surface2
+            ServerHopCurrentJoin.TextColor3 = C().SubText
+
+            -- Перерисовываем максимум 20 строк.
+            serverHopRender()
+        end)
+    end)
+
+    setupButtonFeedback(
+        ServerHopServersTab
+    )
+
+    setupButtonFeedback(
+        ServerHopFavoritesTab
+    )
+
+    setupButtonFeedback(
+        ServerHopSortPlayersMore
+    )
+
+    setupButtonFeedback(
+        ServerHopSortPlayersLess
+    )
+
+    setupButtonFeedback(
+        ServerHopRefreshButton
+    )
+
+    setupButtonFeedback(
+        ServerHopPrevButton
+    )
+
+    setupButtonFeedback(
+        ServerHopNextButton
+    )
+
+    serverHopUpdateTabs()
+
+    serverHopUpdateCurrentCard()
+    ServerHopPanel.Visible = false
+    ServerHopStatus.Text = "Список серверов"
+
+    print(
+        "[MEDA HUB] Optimized Server Hop extension loaded"
+    )
+
+end, debug.traceback)
+
+if not serverHopExtensionOk then
+    warn(
+        "[MEDA HUB] Server Hop failed to initialize:",
+        serverHopExtensionError
+    )
+end
