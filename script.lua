@@ -2910,6 +2910,63 @@ end)
 -- TELEPORT
 --========================================================--
 
+--========================================================--
+-- SPECTATE / НАБЛЮДЕНИЕ ЗА ИГРОКОМ
+--========================================================--
+local spectatingPlayer = nil
+local savedCameraSubject = nil
+
+local function stopSpectating()
+    local camera = workspace.CurrentCamera
+    if camera then
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        camera.CameraSubject = humanoid or savedCameraSubject
+    end
+    spectatingPlayer = nil
+    savedCameraSubject = nil
+    showNotification("Наблюдение выключено", C().SubText)
+end
+
+local function toggleSpectate(player)
+    if not player or player == LocalPlayer then return end
+    if spectatingPlayer == player then
+        stopSpectating()
+        return
+    end
+
+    local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        showNotification("У игрока нет активного персонажа", C().Red)
+        return
+    end
+
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    if not spectatingPlayer then
+        savedCameraSubject = camera.CameraSubject
+    end
+    spectatingPlayer = player
+    camera.CameraSubject = humanoid
+    showNotification("Наблюдение: " .. player.Name .. " (нажми ещё раз, чтобы отключить)", C().Green)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    if not spectatingPlayer then
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if humanoid and workspace.CurrentCamera then
+            workspace.CurrentCamera.CameraSubject = humanoid
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if spectatingPlayer == player then
+        stopSpectating()
+    end
+end)
+
 local playerButtons = {}
 
 local function createPlayerButton(player)
@@ -3015,13 +3072,34 @@ local function createPlayerButton(player)
         createLabel(
             button,
             player.Name,
-            UDim2.new(1, -80, 1, 0),
+            UDim2.new(1, -166, 1, 0),
             UDim2.fromOffset(48, 0),
             Enum.Font.GothamMedium,
             12
         )
 
     nameLabel.ZIndex = 71
+
+    local spectateButton = Instance.new("TextButton")
+    spectateButton.Parent = button
+    spectateButton.Size = UDim2.fromOffset(76, 30)
+    spectateButton.Position = UDim2.new(1, -112, 0.5, -15)
+    spectateButton.BackgroundColor3 = C().Surface2
+    spectateButton.BorderSizePixel = 0
+    spectateButton.Text = spectatingPlayer == player and "Смотрю ✓" or "Смотреть"
+    spectateButton.TextColor3 = spectatingPlayer == player and C().Green or C().Text
+    spectateButton.TextSize = 10
+    spectateButton.Font = Enum.Font.GothamMedium
+    spectateButton.AutoButtonColor = true
+    spectateButton.ZIndex = 75
+    addCorner(spectateButton, 7)
+    spectateButton.MouseButton1Click:Connect(function()
+        toggleSpectate(player)
+        if spectateButton.Parent then
+            spectateButton.Text = spectatingPlayer == player and "Смотрю ✓" or "Смотреть"
+            spectateButton.TextColor3 = spectatingPlayer == player and C().Green or C().Text
+        end
+    end)
 
     local arrow =
         createLabel(
@@ -3911,6 +3989,29 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         label.TextColor3 = C().Text
         label.TextTruncate = Enum.TextTruncate.AtEnd
         label.ZIndex = 92
+
+        if playerData.player and playerData.player ~= LocalPlayer then
+            label.Size = UDim2.new(1, -132, 1, 0)
+            local watch = Instance.new("TextButton")
+            watch.Parent = row
+            watch.Size = UDim2.fromOffset(78, 28)
+            watch.Position = UDim2.new(1, -84, 0.5, -14)
+            watch.BackgroundColor3 = C().Surface2
+            watch.BorderSizePixel = 0
+            watch.Text = spectatingPlayer == playerData.player and "Смотрю ✓" or "Смотреть"
+            watch.TextColor3 = spectatingPlayer == playerData.player and C().Green or C().Text
+            watch.TextSize = 10
+            watch.Font = Enum.Font.GothamMedium
+            watch.ZIndex = 94
+            addCorner(watch, 7)
+            watch.MouseButton1Click:Connect(function()
+                toggleSpectate(playerData.player)
+                if watch.Parent then
+                    watch.Text = spectatingPlayer == playerData.player and "Смотрю ✓" or "Смотреть"
+                    watch.TextColor3 = spectatingPlayer == playerData.player and C().Green or C().Text
+                end
+            end)
+        end
     end
 
     serverHopOpenPlayers = function(server)
@@ -3928,6 +4029,7 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                     )
                 end)
                 serverHopAddPlayerRow({
+                    player = player,
                     name = player.Name, displayName = player.DisplayName, avatar = avatar
                 })
             end
@@ -5716,3 +5818,587 @@ task.defer(function()
         )
     end
 end)
+
+--========================================================--
+-- AIM MENU (SETTINGS UI + FOV DISPLAY + OPTIONAL LINE-OF-SIGHT CHECK)
+-- Aim selection and camera behavior are kept in this existing script.
+--========================================================--
+do
+    local aimPanelOk, aimPanelError = xpcall(function()
+        local AimPanel, AimHeaderFrame, AimCloseButton, AimList =
+            createPanel("AimPanel", "◎  AIM")
+
+        -- Always open centered, independently of the main menu.
+        AimPanel.AnchorPoint = Vector2.new(0, 0)
+        AimPanel.Position = UDim2.new(
+            0.5, -math.floor(PANEL_WIDTH / 2),
+            0.5, -math.floor(PANEL_HEIGHT / 2)
+        )
+
+        local aimSettings = {
+            Enabled = false,
+            ShowFOV = false,
+            FOVSize = 120,
+            TargetPart = "Head",
+            AimSpeed = 10,
+            WallCheck = false,
+            IgnoredPlayers = {},
+        }
+
+        -- Persist ignored user IDs similarly to Server Hop favorites.
+        local HttpService = game:GetService("HttpService")
+        local AIM_IGNORE_FILE = "MedaHub_IgnoredPlayers.json"
+
+        local function loadIgnoredPlayers()
+            if type(isfile) ~= "function" or type(readfile) ~= "function" then return end
+            local ok, exists = pcall(isfile, AIM_IGNORE_FILE)
+            if not ok or not exists then return end
+            local readOk, raw = pcall(readfile, AIM_IGNORE_FILE)
+            if not readOk or type(raw) ~= "string" then return end
+            local decodeOk, decoded = pcall(function()
+                return HttpService:JSONDecode(raw)
+            end)
+            if decodeOk and type(decoded) == "table" then
+                for userId, ignored in pairs(decoded) do
+                    local numericId = tonumber(userId)
+                    if numericId and ignored == true then
+                        aimSettings.IgnoredPlayers[numericId] = true
+                    end
+                end
+            end
+        end
+
+        local function saveIgnoredPlayers()
+            if type(writefile) ~= "function" then return end
+            local serializable = {}
+            for userId, ignored in pairs(aimSettings.IgnoredPlayers) do
+                if ignored == true then serializable[tostring(userId)] = true end
+            end
+            pcall(function()
+                writefile(AIM_IGNORE_FILE, HttpService:JSONEncode(serializable))
+            end)
+        end
+
+        loadIgnoredPlayers()
+
+        -- FOV ring is a normal ScreenGui object, so it does not depend on
+        -- executor-only Drawing APIs.
+        local FOVCircle = Instance.new("Frame")
+        FOVCircle.Name = "AimFOVCircle"
+        FOVCircle.Parent = ScreenGui
+        FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+        FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
+        FOVCircle.Size = UDim2.fromOffset(aimSettings.FOVSize * 2, aimSettings.FOVSize * 2)
+        FOVCircle.BackgroundTransparency = 1
+        FOVCircle.BorderSizePixel = 0
+        FOVCircle.Visible = false
+        FOVCircle.ZIndex = 200
+        local FOVCorner = Instance.new("UICorner")
+        FOVCorner.CornerRadius = UDim.new(1, 0)
+        FOVCorner.Parent = FOVCircle
+        local FOVStroke = Instance.new("UIStroke")
+        FOVStroke.Color = Color3.new(1, 1, 1)
+        FOVStroke.Thickness = 1.5
+        FOVStroke.Transparency = 0
+        FOVStroke.Parent = FOVCircle
+
+        local function makeRow(name, height)
+            local row = Instance.new("Frame")
+            row.Name = name
+            row.Parent = AimList
+            row.Size = UDim2.new(1, -4, 0, height)
+            row.BackgroundColor3 = C().Surface
+            row.BorderSizePixel = 0
+            row.ZIndex = 70
+            addCorner(row, 9)
+            addStroke(row, C().Stroke, 1, 0.25)
+            return row
+        end
+
+        local function makeText(parent, text, size, pos, textSize, bold)
+            local label = createLabel(
+                parent, text, size, pos,
+                bold and Enum.Font.GothamBold or Enum.Font.Gotham,
+                textSize or 11
+            )
+            label.TextColor3 = C().Text
+            label.ZIndex = 72
+            return label
+        end
+
+        local function makeToggle(title, initial, callback)
+            local row = makeRow(title:gsub("%W", "") .. "Row", 42)
+            makeText(row, title, UDim2.new(1, -80, 1, 0), UDim2.fromOffset(12, 0), 12, true)
+            local button = Instance.new("TextButton")
+            button.Parent = row
+            button.Size = UDim2.fromOffset(48, 25)
+            button.Position = UDim2.new(1, -60, 0.5, -12)
+            button.BorderSizePixel = 0
+            button.AutoButtonColor = false
+            button.TextColor3 = Color3.new(1, 1, 1)
+            button.Font = Enum.Font.GothamBold
+            button.TextSize = 10
+            button.ZIndex = 73
+            addCorner(button, 8)
+            local state = initial
+            local function refresh()
+                button.Text = state and "ON" or "OFF"
+                button.BackgroundColor3 = state and C().Accent or C().Surface2
+            end
+            local function setState(value)
+                state = value
+                refresh()
+                callback(state)
+            end
+            button.MouseButton1Click:Connect(function() setState(not state) end)
+            refresh()
+            return setState, button
+        end
+
+        local function makeSlider(title, minValue, maxValue, initial, callback)
+            local row = makeRow(title:gsub("%W", "") .. "Row", 58)
+            local valueLabel = makeText(row, title .. ": " .. tostring(initial),
+                UDim2.new(1, -20, 0, 20), UDim2.fromOffset(12, 4), 11, true)
+            local track = Instance.new("Frame")
+            track.Parent = row
+            track.Position = UDim2.new(0, 12, 0, 34)
+            track.Size = UDim2.new(1, -24, 0, 8)
+            track.BackgroundColor3 = C().Surface2
+            track.BorderSizePixel = 0
+            track.ZIndex = 72
+            addCorner(track, 4)
+            local fill = Instance.new("Frame")
+            fill.Parent = track
+            fill.Size = UDim2.new((initial - minValue) / (maxValue - minValue), 0, 1, 0)
+            fill.BackgroundColor3 = C().Accent
+            fill.BorderSizePixel = 0
+            fill.ZIndex = 73
+            addCorner(fill, 4)
+            local hit = Instance.new("TextButton")
+            hit.Parent = row
+            hit.Position = UDim2.new(0, 8, 0, 25)
+            hit.Size = UDim2.new(1, -16, 0, 28)
+            hit.BackgroundTransparency = 1
+            hit.Text = ""
+            hit.ZIndex = 75
+            local value = initial
+            local function setFromX(x)
+                local width = math.max(track.AbsoluteSize.X, 1)
+                local alpha = math.clamp((x - track.AbsolutePosition.X) / width, 0, 1)
+                value = math.floor(minValue + alpha * (maxValue - minValue) + 0.5)
+                fill.Size = UDim2.new((value - minValue) / (maxValue - minValue), 0, 1, 0)
+                valueLabel.Text = title .. ": " .. tostring(value)
+                callback(value)
+            end
+            local draggingSlider = false
+            hit.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingSlider = true
+                    setFromX(input.Position.X)
+                end
+            end)
+            hit.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingSlider = false
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if draggingSlider and (
+                    input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch
+                ) then
+                    setFromX(input.Position.X)
+                end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingSlider = false
+                end
+            end)
+            return function(v)
+                value = math.clamp(v, minValue, maxValue)
+                fill.Size = UDim2.new((value - minValue) / (maxValue - minValue), 0, 1, 0)
+                valueLabel.Text = title .. ": " .. tostring(value)
+                callback(value)
+            end
+        end
+
+        local enableToggle = makeToggle("Enable", false, function(value)
+            aimSettings.Enabled = value
+        end)
+        local showFOVToggle = makeToggle("Show FOV", false, function(value)
+            aimSettings.ShowFOV = value
+            FOVCircle.Visible = value
+        end)
+        makeToggle("Wall Check", false, function(value)
+            aimSettings.WallCheck = value
+        end)
+
+        makeSlider("FOV Size", 40, 400, aimSettings.FOVSize, function(value)
+            aimSettings.FOVSize = value
+            FOVCircle.Size = UDim2.fromOffset(value * 2, value * 2)
+        end)
+
+        local partRow = makeRow("TargetPartRow", 44)
+        makeText(partRow, "Target Part", UDim2.new(0.45, 0, 1, 0), UDim2.fromOffset(12, 0), 11, true)
+        local parts = {"Head", "Neck", "Chest", "Body"}
+        local partIndex = 1
+        local partButton = Instance.new("TextButton")
+        partButton.Parent = partRow
+        partButton.Size = UDim2.fromOffset(125, 28)
+        partButton.Position = UDim2.new(1, -137, 0.5, -14)
+        partButton.BackgroundColor3 = C().Surface2
+        partButton.BorderSizePixel = 0
+        partButton.TextColor3 = C().Text
+        partButton.Font = Enum.Font.Gotham
+        partButton.TextSize = 11
+        partButton.Text = parts[partIndex] .. "  ▾"
+        partButton.ZIndex = 73
+        addCorner(partButton, 7)
+        partButton.MouseButton1Click:Connect(function()
+            partIndex = (partIndex % #parts) + 1
+            aimSettings.TargetPart = parts[partIndex]
+            partButton.Text = parts[partIndex] .. "  ▾"
+        end)
+
+        makeSlider("Aim Speed", 1, 100, aimSettings.AimSpeed, function(value)
+            aimSettings.AimSpeed = value
+        end)
+
+        -- Friend List opens as its own panel, matching the existing player-list UI.
+        local friendListButtonRow = makeRow("FriendListButtonRow", 46)
+        makeText(friendListButtonRow, "Friend List",
+            UDim2.new(1, -120, 1, 0), UDim2.fromOffset(12, 0), 12, true)
+        local friendListOpenButton = Instance.new("TextButton")
+        friendListOpenButton.Parent = friendListButtonRow
+        friendListOpenButton.Size = UDim2.fromOffset(94, 28)
+        friendListOpenButton.Position = UDim2.new(1, -106, 0.5, -14)
+        friendListOpenButton.BackgroundColor3 = C().Surface2
+        friendListOpenButton.BorderSizePixel = 0
+        friendListOpenButton.Text = "OPEN  ›"
+        friendListOpenButton.TextColor3 = C().Text
+        friendListOpenButton.Font = Enum.Font.GothamBold
+        friendListOpenButton.TextSize = 10
+        friendListOpenButton.ZIndex = 73
+        addCorner(friendListOpenButton, 7)
+
+        local FriendListPanel, FriendListHeader, FriendListClose, FriendListBody =
+            createPanel("AimFriendListPanel", "♙  FRIEND LIST")
+        FriendListPanel.Position = UDim2.new(
+            0.5, -math.floor(PANEL_WIDTH / 2),
+            0.5, -math.floor(PANEL_HEIGHT / 2)
+        )
+        local friendRows = {}
+
+        local function clearFriendRows()
+            for _, row in ipairs(friendRows) do
+                if row and row.Parent then row:Destroy() end
+            end
+            table.clear(friendRows)
+        end
+
+        local function rebuildFriendRows()
+            clearFriendRows()
+            local layout = FriendListBody:FindFirstChildOfClass("UIListLayout")
+            local y = 0
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local ignored = aimSettings.IgnoredPlayers[player.UserId] == true
+                    local row = Instance.new("Frame")
+                    row.Name = "Friend_" .. tostring(player.UserId)
+                    row.Parent = FriendListBody
+                    row.Size = UDim2.new(1, -4, 0, 52)
+                    row.Position = UDim2.fromOffset(0, y)
+                    row.BackgroundColor3 = C().Surface
+                    row.BorderSizePixel = 0
+                    row.ZIndex = 70
+                    row.LayoutOrder = #friendRows + 1
+                    addCorner(row, 9)
+                    addStroke(row, C().Stroke, 1, 0.25)
+                    table.insert(friendRows, row)
+
+                    local avatar = Instance.new("ImageLabel")
+                    avatar.Parent = row
+                    avatar.Size = UDim2.fromOffset(36, 36)
+                    avatar.Position = UDim2.fromOffset(8, 8)
+                    avatar.BackgroundColor3 = C().Surface2
+                    avatar.BorderSizePixel = 0
+                    avatar.Image = ""
+                    avatar.ScaleType = Enum.ScaleType.Crop
+                    avatar.ZIndex = 72
+                    addCorner(avatar, 8)
+
+                    task.spawn(function()
+                        local ok, image = pcall(function()
+                            local content = Players:GetUserThumbnailAsync(
+                                player.UserId,
+                                Enum.ThumbnailType.HeadShot,
+                                Enum.ThumbnailSize.Size100x100
+                            )
+                            return content
+                        end)
+                        if ok and avatar.Parent then avatar.Image = image end
+                    end)
+
+                    local nameLabel = createLabel(
+                        row,
+                        player.DisplayName .. "  (@" .. player.Name .. ")",
+                        UDim2.new(1, -128, 1, 0),
+                        UDim2.fromOffset(52, 0),
+                        Enum.Font.Gotham,
+                        10
+                    )
+                    nameLabel.TextColor3 = C().Text
+                    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                    nameLabel.ZIndex = 72
+
+                    local ignoreButton = Instance.new("TextButton")
+                    ignoreButton.Parent = row
+                    ignoreButton.Size = UDim2.fromOffset(68, 26)
+                    ignoreButton.Position = UDim2.new(1, -78, 0.5, -13)
+                    ignoreButton.BackgroundColor3 = ignored and C().Accent or C().Surface2
+                    ignoreButton.BorderSizePixel = 0
+                    ignoreButton.Text = ignored and "IGNORING" or "IGNORE"
+                    ignoreButton.TextColor3 = Color3.new(1, 1, 1)
+                    ignoreButton.Font = Enum.Font.GothamBold
+                    ignoreButton.TextSize = 9
+                    ignoreButton.ZIndex = 73
+                    addCorner(ignoreButton, 7)
+                    ignoreButton.MouseButton1Click:Connect(function()
+                        aimSettings.IgnoredPlayers[player.UserId] =
+                            not (aimSettings.IgnoredPlayers[player.UserId] == true)
+                        saveIgnoredPlayers()
+                        rebuildFriendRows()
+                    end)
+                    y = y + 58
+                end
+            end
+            if FriendListBody:IsA("ScrollingFrame") then
+                FriendListBody.CanvasSize = UDim2.fromOffset(0, y)
+                FriendListBody.ScrollBarThickness = 4
+            end
+            if #friendRows == 0 then
+                local empty = createLabel(
+                    FriendListBody, "Нет других игроков на сервере",
+                    UDim2.new(1, -8, 0, 28), UDim2.fromOffset(4, 8),
+                    Enum.Font.Gotham, 10
+                )
+                empty.TextColor3 = C().SubText
+                empty.ZIndex = 72
+                table.insert(friendRows, empty)
+            end
+        end
+
+        friendListOpenButton.MouseButton1Click:Connect(function()
+            rebuildFriendRows()
+            FriendListPanel.Position = UDim2.new(
+                0.5, -math.floor(PANEL_WIDTH / 2),
+                0.5, -math.floor(PANEL_HEIGHT / 2)
+            )
+            openPanel(FriendListPanel)
+        end)
+        FriendListClose.MouseButton1Click:Connect(function()
+            closePanel(FriendListPanel)
+        end)
+        FriendListHeader.InputBegan:Connect(function(input)
+            beginDrag(FriendListPanel, input)
+        end)
+        Players.PlayerAdded:Connect(function()
+            task.defer(rebuildFriendRows)
+        end)
+        Players.PlayerRemoving:Connect(function(player)
+            task.defer(rebuildFriendRows)
+        end)
+        FriendListPanel.Visible = false
+
+        -- Keep the circle centered even if the viewport changes.
+        -- Target selection uses the current camera viewport and optional raycast visibility check.
+        local currentAimCandidate = nil
+        local function getAimPart(character, partName)
+            if not character then return nil end
+            local partMap = {
+                Head = {"Head", "UpperTorso", "Torso", "HumanoidRootPart"},
+                Neck = {"Head", "UpperTorso", "Torso", "HumanoidRootPart"},
+                Chest = {"UpperTorso", "Torso", "LowerTorso", "HumanoidRootPart", "Head"},
+                Body = {"HumanoidRootPart", "LowerTorso", "Torso", "UpperTorso", "Head"},
+            }
+            for _, name in ipairs(partMap[partName] or partMap.Head) do
+                local part = character:FindFirstChild(name)
+                if part and part:IsA("BasePart") then return part end
+            end
+            return nil
+        end
+
+        local function hasLineOfSight(camera, character, targetPart)
+            if not aimSettings.WallCheck then return true end
+            local localCharacter = LocalPlayer.Character
+            local origin = camera.CFrame.Position
+            local direction = targetPart.Position - origin
+            if direction.Magnitude <= 0.001 then return true end
+
+            local rayParams = RaycastParams.new()
+            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+            rayParams.FilterDescendantsInstances = localCharacter and {localCharacter} or {}
+            rayParams.IgnoreWater = true
+
+            local result = workspace:Raycast(origin, direction, rayParams)
+            -- No hit means the ray is unobstructed; a hit on the target's
+            -- character (including accessories) also counts as visible.
+            return result == nil or result.Instance:IsDescendantOf(character)
+        end
+
+        local function findAimCandidate()
+            local camera = workspace.CurrentCamera
+            if not camera then return nil end
+            local viewport = camera.ViewportSize
+            local center = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+            local bestPlayer, bestPart, bestDistance = nil, nil, aimSettings.FOVSize
+            for _, player in ipairs(Players:GetPlayers()) do
+                local character = player.Character
+                if player ~= LocalPlayer
+                    and aimSettings.IgnoredPlayers[player.UserId] ~= true
+                    and character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local part = getAimPart(character, aimSettings.TargetPart)
+                    if humanoid and humanoid.Health > 0 and part and part:IsDescendantOf(character)
+                        and hasLineOfSight(camera, character, part) then
+                        local screenPoint, onScreen = camera:WorldToViewportPoint(part.Position)
+                        if onScreen and screenPoint.Z > 0 then
+                            local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - center).Magnitude
+                            if distance <= bestDistance then
+                                bestDistance = distance
+                                bestPlayer, bestPart = player, part
+                            end
+                        end
+                    end
+                end
+            end
+            return bestPlayer, bestPart
+        end
+
+        local currentAimPart = nil
+        RunService.RenderStepped:Connect(function(deltaTime)
+            if FOVCircle and FOVCircle.Parent then
+                FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
+                FOVCircle.Size = UDim2.fromOffset(aimSettings.FOVSize * 2, aimSettings.FOVSize * 2)
+                FOVCircle.Visible = aimSettings.ShowFOV
+            end
+
+            if not aimSettings.Enabled then
+                currentAimCandidate = nil
+                currentAimPart = nil
+                return
+            end
+
+            local targetPlayer, targetPart = findAimCandidate()
+            currentAimCandidate = targetPlayer
+            currentAimPart = targetPart
+
+            -- Smooth camera aim-assist, driven by the actual settings.
+            -- AimSpeed is frame-rate adjusted so it behaves consistently.
+            local camera = workspace.CurrentCamera
+            if camera and targetPlayer and targetPart and targetPart.Parent then
+                local cameraPosition = camera.CFrame.Position
+                local targetPosition = targetPart.Position
+                local direction = targetPosition - cameraPosition
+                if direction.Magnitude > 0.001 then
+                    local desired = CFrame.lookAt(cameraPosition, targetPosition)
+                    local speedAlpha = 1 - math.exp(-aimSettings.AimSpeed * math.max(deltaTime, 0) * 0.6)
+                    camera.CFrame = camera.CFrame:Lerp(desired, math.clamp(speedAlpha, 0, 1))
+                end
+            end
+        end)
+
+        local AimButton = Instance.new("TextButton")
+        AimButton.Name = "AimButton"
+        AimButton.Parent = Content
+        AimButton.Size = UDim2.fromOffset(198, 58)
+        AimButton.Position = UDim2.fromOffset(0, 297)
+        AimButton.BackgroundColor3 = C().Surface
+        AimButton.BorderSizePixel = 0
+        AimButton.Text = ""
+        AimButton.AutoButtonColor = false
+        AimButton.ZIndex = 12
+        addCorner(AimButton, 11)
+        addStroke(AimButton, C().Stroke, 1, 0.2)
+
+        local AimIconBox = Instance.new("Frame")
+        AimIconBox.Parent = AimButton
+        AimIconBox.Size = UDim2.fromOffset(36, 36)
+        AimIconBox.Position = UDim2.fromOffset(10, 11)
+        AimIconBox.BackgroundColor3 = C().Surface2
+        AimIconBox.BorderSizePixel = 0
+        AimIconBox.ZIndex = 13
+        addCorner(AimIconBox, 9)
+
+        local AimIcon = createLabel(AimIconBox, "◎", UDim2.fromScale(1, 1),
+            UDim2.fromScale(0, 0), Enum.Font.GothamBold, 16)
+        AimIcon.TextXAlignment = Enum.TextXAlignment.Center
+        AimIcon.TextColor3 = C().Accent
+        AimIcon.ZIndex = 14
+
+        local AimTitle = createLabel(AimButton, "AIM",
+            UDim2.fromOffset(125, 21), UDim2.fromOffset(56, 8), Enum.Font.GothamBold, 12)
+        AimTitle.ZIndex = 14
+        local AimStatus = createLabel(AimButton, "Открыть настройки",
+            UDim2.fromOffset(130, 18), UDim2.fromOffset(56, 31), Enum.Font.Gotham, 10)
+        AimStatus.TextColor3 = C().SubText
+        AimStatus.ZIndex = 14
+
+        Content.CanvasSize = UDim2.fromOffset(0, 370)
+        setupButtonFeedback(AimButton)
+        AimButton.MouseButton1Click:Connect(function()
+            AimPanel.Position = UDim2.new(
+                0.5, -math.floor(PANEL_WIDTH / 2),
+                0.5, -math.floor(PANEL_HEIGHT / 2)
+            )
+            openPanel(AimPanel)
+        end)
+        AimCloseButton.MouseButton1Click:Connect(function()
+            closePanel(AimPanel)
+        end)
+        AimHeaderFrame.InputBegan:Connect(function(input)
+            beginDrag(AimPanel, input)
+        end)
+
+        ThemeButton.MouseButton1Click:Connect(function()
+            task.defer(function()
+                if not AimPanel or not AimPanel.Parent then return end
+                AimPanel.BackgroundColor3 = C().Background
+                AimHeaderFrame.BackgroundColor3 = C().Header
+                AimButton.BackgroundColor3 = C().Surface
+                AimIconBox.BackgroundColor3 = C().Surface2
+                AimIcon.TextColor3 = C().Accent
+                AimTitle.TextColor3 = C().Text
+                AimStatus.TextColor3 = C().SubText
+                FOVStroke.Color = Color3.new(1, 1, 1)
+                for _, child in ipairs(AimList:GetChildren()) do
+                    if child:IsA("Frame") then
+                        child.BackgroundColor3 = C().Surface
+                        for _, nested in ipairs(child:GetDescendants()) do
+                            if nested:IsA("TextLabel") then
+                                if nested.TextColor3 ~= C().SubText then nested.TextColor3 = C().Text end
+                            elseif nested:IsA("TextButton") then
+                                if nested.Text == "ON" or nested.Text == "OFF" then
+                                    nested.BackgroundColor3 = nested.Text == "ON" and C().Accent or C().Surface2
+                                elseif nested.Name ~= "CloseButton" then
+                                    nested.BackgroundColor3 = C().Surface2
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end)
+
+        AimPanel.Visible = false
+        print("[MEDA HUB] AIM settings loaded (Wall Check supported)")
+    end, debug.traceback)
+
+    if not aimPanelOk then
+        warn("[MEDA HUB] AIM menu failed to initialize:", aimPanelError)
+    end
+end
