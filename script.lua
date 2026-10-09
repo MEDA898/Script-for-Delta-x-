@@ -1,3 +1,13 @@
+-- Shared persisted feature state used by config snapshots and optional modules.
+_G.MedaHubPersistentState = _G.MedaHubPersistentState or {
+    statsEnabled = false,
+    statsPosition = {x = 24, y = 120},
+    aim = {
+        Enabled = false, ShowFOV = false, FOVSize = 120,
+        TargetPart = "Head", AimSpeed = 10, WallCheck = false,
+        IgnoredPlayers = {}
+    }
+}
 --========================================================--
 --                    MEDA HUB v3                        --
 --       Modern UI / Русская настройка / Drag Opacity    --
@@ -5043,7 +5053,12 @@ task.defer(function()
 
                 -- Чекпоинты
                 checkpointSpeed = routeSpeed,
-                checkpoints = pointData
+                checkpoints = pointData,
+
+                -- Статистика и AIM
+                statsEnabled = _G.MedaHubPersistentState.statsEnabled == true,
+                statsPosition = _G.MedaHubPersistentState.statsPosition or {x = 24, y = 120},
+                aim = _G.MedaHubPersistentState.aim or {}
             }
         end
 
@@ -5556,6 +5571,37 @@ task.defer(function()
                                 savePosition()
                             end
 
+                            -- Статистика и AIM: сохранить выбранные значения для модулей.
+                            local sharedState = _G.MedaHubPersistentState
+                            if type(sharedState) == "table" then
+                                sharedState.statsEnabled = cfg.statsEnabled == true
+                                if type(cfg.statsPosition) == "table" then
+                                    sharedState.statsPosition = {
+                                        x = tonumber(cfg.statsPosition.x) or 24,
+                                        y = tonumber(cfg.statsPosition.y) or 120
+                                    }
+                                end
+                                if type(cfg.aim) == "table" then
+                                    sharedState.aim = type(sharedState.aim) == "table" and sharedState.aim or {}
+                                    for key, value in pairs(cfg.aim) do
+                                        sharedState.aim[key] = value
+                                    end
+                                end
+                                -- Если статистика уже создана, обновить её атрибуты.
+                                local statsGui = ScreenGui:FindFirstChild("MedaStatsOverlay")
+                                if statsGui then
+                                    statsGui.Visible = sharedState.statsEnabled
+                                    local statsToggle = MenuSettingsList:FindFirstChild("StatsOverlayToggle")
+                                    if statsToggle then
+                                        statsToggle.Text = "Показывать статистику: " .. (sharedState.statsEnabled and "ВКЛ" or "ВЫКЛ")
+                                        statsToggle.TextColor3 = sharedState.statsEnabled and C().Green or C().Text
+                                    end
+                                    if type(sharedState.statsPosition) == "table" then
+                                        statsGui.Position = UDim2.fromOffset(sharedState.statsPosition.x or 24, sharedState.statsPosition.y or 120)
+                                    end
+                                end
+                            end
+
                             -- Чекпоинты
                             checkpointRouteRunning = false
 
@@ -5835,15 +5881,16 @@ do
             0.5, -math.floor(PANEL_HEIGHT / 2)
         )
 
-        local aimSettings = {
-            Enabled = false,
-            ShowFOV = false,
-            FOVSize = 120,
-            TargetPart = "Head",
-            AimSpeed = 10,
-            WallCheck = false,
-            IgnoredPlayers = {},
-        }
+        local sharedState = _G.MedaHubPersistentState
+        sharedState.aim = type(sharedState.aim) == "table" and sharedState.aim or {}
+        local aimSettings = sharedState.aim
+        if aimSettings.Enabled == nil then aimSettings.Enabled = false end
+        if aimSettings.ShowFOV == nil then aimSettings.ShowFOV = false end
+        if aimSettings.FOVSize == nil then aimSettings.FOVSize = 120 end
+        if aimSettings.TargetPart == nil then aimSettings.TargetPart = "Head" end
+        if aimSettings.AimSpeed == nil then aimSettings.AimSpeed = 10 end
+        if aimSettings.WallCheck == nil then aimSettings.WallCheck = false end
+        if type(aimSettings.IgnoredPlayers) ~= "table" then aimSettings.IgnoredPlayers = {} end
 
         -- Persist ignored user IDs similarly to Server Hop favorites.
         local HttpService = game:GetService("HttpService")
@@ -6402,3 +6449,215 @@ do
         warn("[MEDA HUB] AIM menu failed to initialize:", aimPanelError)
     end
 end
+--========================================================--
+-- MEDA HUB: OPTIONAL FPS / PING OVERLAY (SAFE INIT)
+--========================================================--
+-- This module is intentionally isolated so a stats/UI error won't stop the hub.
+do
+    local statsInitOk, statsInitErr = pcall(function()
+        local sharedState = _G.MedaHubPersistentState
+        local statsEnabled = sharedState.statsEnabled == true
+        local savedStatsPosition = type(sharedState.statsPosition) == "table" and sharedState.statsPosition or {x = 24, y = 120}
+        local statsFrames, statsElapsed = 0, 0
+        local statsLastFpsUpdate, statsLastPingUpdate = 0, 0
+
+        local overlay = Instance.new("Frame")
+        overlay.Name = "MedaStatsOverlay"
+        overlay.Parent = ScreenGui
+        overlay.Size = UDim2.fromOffset(184, 70)
+        overlay.Position = UDim2.fromOffset(tonumber(savedStatsPosition.x) or 24, tonumber(savedStatsPosition.y) or 120)
+        overlay.BackgroundColor3 = C().Background
+        overlay.BackgroundTransparency = 0.25
+        overlay.BorderSizePixel = 0
+        overlay.Visible = statsEnabled
+        overlay.Active = false
+        overlay.ZIndex = 200
+        addCorner(overlay, 9)
+        local overlayStroke = addStroke(overlay, C().Stroke, 1, 0.25)
+
+        local header = Instance.new("Frame")
+        header.Name = "DragHeader"
+        header.Parent = overlay
+        header.Size = UDim2.new(1, 0, 0, 29)
+        header.Position = UDim2.fromOffset(0, 0)
+        header.BackgroundColor3 = C().Header
+        header.BackgroundTransparency = 0.12
+        header.BorderSizePixel = 0
+        header.Active = true
+        header.ZIndex = 203
+        addCorner(header, 9)
+
+        local headerCover = Instance.new("Frame")
+        headerCover.Parent = header
+        headerCover.Position = UDim2.new(0, 0, 1, -9)
+        headerCover.Size = UDim2.new(1, 0, 0, 9)
+        headerCover.BackgroundColor3 = C().Header
+        headerCover.BackgroundTransparency = 0.2
+        headerCover.BorderSizePixel = 0
+        headerCover.Active = false
+        headerCover.ZIndex = 203
+
+        local accentLine = Instance.new("Frame")
+        accentLine.Name = "AccentLine"
+        accentLine.Parent = header
+        accentLine.Position = UDim2.fromOffset(0, 27)
+        accentLine.Size = UDim2.new(1, 0, 0, 2)
+        accentLine.BackgroundColor3 = C().Accent
+        accentLine.BackgroundTransparency = 0.08
+        accentLine.BorderSizePixel = 0
+        accentLine.Active = false
+        accentLine.ZIndex = 204
+
+        local brand = Instance.new("TextLabel")
+        brand.Parent = header
+        brand.BackgroundTransparency = 1
+        brand.Position = UDim2.fromOffset(9, 0)
+        brand.Size = UDim2.new(1, -18, 1, 0)
+        brand.Font = Enum.Font.GothamBold
+        brand.Text = "@meda898"
+        brand.TextSize = 11
+        brand.TextColor3 = C().Text
+        brand.TextXAlignment = Enum.TextXAlignment.Left
+        brand.Active = false
+        brand.ZIndex = 205
+
+        local fpsLabel = Instance.new("TextLabel")
+        fpsLabel.Parent = overlay
+        fpsLabel.BackgroundTransparency = 1
+        fpsLabel.Position = UDim2.fromOffset(10, 32)
+        fpsLabel.Size = UDim2.new(0.5, -10, 0, 25)
+        fpsLabel.Font = Enum.Font.GothamMedium
+        fpsLabel.Text = "FPS: --"
+        fpsLabel.TextSize = 12
+        fpsLabel.TextColor3 = C().Text
+        fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+        fpsLabel.Active = false
+        fpsLabel.ZIndex = 202
+
+        local pingLabel = Instance.new("TextLabel")
+        pingLabel.Parent = overlay
+        pingLabel.BackgroundTransparency = 1
+        pingLabel.Position = UDim2.new(0.5, 0, 0, 32)
+        pingLabel.Size = UDim2.new(0.5, -8, 0, 25)
+        pingLabel.Font = Enum.Font.GothamMedium
+        pingLabel.Text = "Ping: --"
+        pingLabel.TextSize = 12
+        pingLabel.TextColor3 = C().Text
+        pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        pingLabel.Active = false
+        pingLabel.ZIndex = 202
+
+        local toggle = Instance.new("TextButton")
+        toggle.Name = "StatsOverlayToggle"
+        toggle.Parent = MenuSettingsList
+        toggle.Size = UDim2.new(1, -4, 0, 36)
+        toggle.BackgroundColor3 = C().Surface
+        toggle.BorderSizePixel = 0
+        toggle.Text = "Показывать статистику: " .. (statsEnabled and "ВКЛ" or "ВЫКЛ")
+        toggle.TextColor3 = statsEnabled and C().Green or C().Text
+        toggle.Font = Enum.Font.GothamMedium
+        toggle.TextSize = 12
+        toggle.AutoButtonColor = false
+        toggle.ZIndex = 70
+        addCorner(toggle, 9)
+        local toggleStroke = addStroke(toggle, C().Stroke, 1, 0.15)
+
+        toggle.MouseButton1Click:Connect(function()
+            statsEnabled = not statsEnabled
+            sharedState.statsEnabled = statsEnabled
+            overlay.Visible = statsEnabled
+            toggle.Text = "Показывать статистику: " .. (statsEnabled and "ВКЛ" or "ВЫКЛ")
+            toggle.TextColor3 = statsEnabled and C().Green or C().Text
+        end)
+
+        -- Drag only from the header. The rest of the overlay does not capture input.
+        local dragging = false
+        local dragStart, startPosition
+        header.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPosition = overlay.Position
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            if not dragStart or not startPosition then return end
+            local delta = input.Position - dragStart
+            local camera = workspace.CurrentCamera
+            local viewport = camera and camera.ViewportSize
+            local x = startPosition.X.Offset + delta.X
+            local y = startPosition.Y.Offset + delta.Y
+            if viewport then
+                x = math.clamp(x, 0, math.max(0, viewport.X - overlay.AbsoluteSize.X))
+                y = math.clamp(y, 0, math.max(0, viewport.Y - overlay.AbsoluteSize.Y))
+            end
+            overlay.Position = UDim2.fromOffset(x, y)
+            sharedState.statsPosition = {x = x, y = y}
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+                dragStart, startPosition = nil, nil
+            end
+        end)
+
+        RunService.RenderStepped:Connect(function(dt)
+            if not statsEnabled then return end
+            statsFrames = statsFrames + 1
+            statsElapsed = statsElapsed + dt
+            if statsElapsed >= 0.5 then
+                fpsLabel.Text = "FPS: " .. tostring(math.floor(statsFrames / math.max(statsElapsed, 0.001) + 0.5))
+                statsFrames, statsElapsed = 0, 0
+            end
+        end)
+
+        task.spawn(function()
+            while ScreenGui and ScreenGui.Parent do
+                if statsEnabled then
+                    local pingText
+                    local ok = pcall(function()
+                        local statsService = game:GetService("Stats")
+                        local network = statsService:FindFirstChild("Network")
+                        local serverStats = network and network:FindFirstChild("ServerStatsItem")
+                        local dataPing = serverStats and serverStats:FindFirstChild("Data Ping")
+                        if dataPing then pingText = dataPing:GetValueString() end
+                    end)
+                    if ok and pingText and pingText ~= "" then
+                        local numericPing = tonumber(string.match(pingText, "%d+%.?%d*"))
+                        pingLabel.Text = "Ping: " .. (numericPing and (tostring(math.floor(numericPing + 0.5)) .. " ms") or pingText)
+                    else
+                        pingLabel.Text = "Ping: N/A"
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+
+        -- Keep the overlay in sync with the hub's current theme.
+        local function refreshStatsTheme()
+            local theme = C()
+            overlay.BackgroundColor3 = theme.Background
+            overlayStroke.Color = theme.Stroke
+            header.BackgroundColor3 = theme.Header
+            headerCover.BackgroundColor3 = theme.Header
+            brand.TextColor3 = theme.Text
+            fpsLabel.TextColor3 = theme.Text
+            pingLabel.TextColor3 = theme.Text
+            toggle.BackgroundColor3 = theme.Surface
+            toggleStroke.Color = theme.Stroke
+            toggle.TextColor3 = statsEnabled and theme.Green or theme.Text
+        end
+        -- Theme changes are initiated by the existing theme button.
+        ThemeButton.MouseButton1Click:Connect(function()
+            task.defer(refreshStatsTheme)
+        end)
+        print("[MEDA HUB] Stats overlay initialized")
+    end)
+
+    if not statsInitOk then
+        warn("[MEDA HUB] Stats overlay failed to initialize: " .. tostring(statsInitErr))
+    end
+end
+
