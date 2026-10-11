@@ -1,4 +1,3 @@
--- Shared persisted feature state used by config snapshots and optional modules.
 _G.MedaHubPersistentState = _G.MedaHubPersistentState or {
     statsEnabled = false,
     statsPosition = {x = 24, y = 120},
@@ -8,133 +7,121 @@ _G.MedaHubPersistentState = _G.MedaHubPersistentState or {
         IgnoredPlayers = {}
     }
 }
---========================================================--
---                    MEDA HUB v3                        --
---       Modern UI / Русская настройка / Drag Opacity    --
---========================================================--
-
---// Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-
---// Player
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
---========================================================--
--- CONFIG
---========================================================--
-
 local MENU_WIDTH = 440
 local MENU_HEIGHT = 340
-
 local PANEL_WIDTH = 300
 local PANEL_HEIGHT = 340
-
 local DEFAULT_SPEED = 16
 local MIN_SPEED = 0
 local MAX_SPEED = math.huge
-
 local isDarkTheme = true
 local allowOutOfBounds = false
-
---========================================================--
--- DRAG TRANSPARENCY
---========================================================--
-
 local dragTransparency = 0.45
-
 local MIN_DRAG_TRANSPARENCY = 0
 local MAX_DRAG_TRANSPARENCY = 0.85
-
 local isDraggingMenu = false
 local dragTransparencyObjects = {}
-
---========================================================--
--- COLORS
---========================================================--
-
+-- Liquid Glass palette: translucent surfaces, bright edges, soft accent
 local Dark = {
-    Background = Color3.fromRGB(12, 14, 20),
-    Header = Color3.fromRGB(17, 19, 27),
-    Surface = Color3.fromRGB(21, 24, 33),
-    Surface2 = Color3.fromRGB(28, 32, 43),
-    SurfaceHover = Color3.fromRGB(36, 40, 53),
-
-    Text = Color3.fromRGB(245, 246, 250),
-    SubText = Color3.fromRGB(145, 151, 166),
-
-    Stroke = Color3.fromRGB(52, 58, 75),
-
-    Accent = Color3.fromRGB(105, 88, 255),
-    Accent2 = Color3.fromRGB(151, 105, 255),
-
-    Green = Color3.fromRGB(45, 210, 125),
-    Red = Color3.fromRGB(235, 70, 85),
-    Orange = Color3.fromRGB(245, 180, 70),
-
-    Input = Color3.fromRGB(18, 21, 29)
+    Background = Color3.fromRGB(28, 28, 38),
+    Header = Color3.fromRGB(40, 40, 54),
+    Surface = Color3.fromRGB(46, 46, 62),
+    Surface2 = Color3.fromRGB(58, 58, 76),
+    SurfaceHover = Color3.fromRGB(72, 72, 94),
+    Text = Color3.fromRGB(242, 242, 247),
+    SubText = Color3.fromRGB(170, 170, 186),
+    Stroke = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromRGB(139, 124, 255),
+    Accent2 = Color3.fromRGB(90, 200, 250),
+    Green = Color3.fromRGB(52, 214, 140),
+    Red = Color3.fromRGB(255, 99, 110),
+    Orange = Color3.fromRGB(255, 184, 90),
+    Input = Color3.fromRGB(34, 34, 48)
 }
-
 local Light = {
-    Background = Color3.fromRGB(238, 240, 245),
-    Header = Color3.fromRGB(248, 249, 252),
-    Surface = Color3.fromRGB(250, 251, 253),
-    Surface2 = Color3.fromRGB(227, 230, 237),
-    SurfaceHover = Color3.fromRGB(216, 219, 228),
-
-    Text = Color3.fromRGB(28, 30, 38),
-    SubText = Color3.fromRGB(105, 110, 122),
-
-    Stroke = Color3.fromRGB(204, 208, 218),
-
-    Accent = Color3.fromRGB(91, 75, 220),
-    Accent2 = Color3.fromRGB(124, 96, 235),
-
-    Green = Color3.fromRGB(40, 175, 105),
-    Red = Color3.fromRGB(220, 60, 75),
-    Orange = Color3.fromRGB(220, 150, 55),
-
-    Input = Color3.fromRGB(242, 243, 247)
+    Background = Color3.fromRGB(245, 246, 252),
+    Header = Color3.fromRGB(255, 255, 255),
+    Surface = Color3.fromRGB(255, 255, 255),
+    Surface2 = Color3.fromRGB(232, 234, 244),
+    SurfaceHover = Color3.fromRGB(220, 223, 238),
+    Text = Color3.fromRGB(28, 28, 36),
+    SubText = Color3.fromRGB(110, 112, 128),
+    Stroke = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromRGB(104, 88, 240),
+    Accent2 = Color3.fromRGB(64, 170, 240),
+    Green = Color3.fromRGB(40, 185, 120),
+    Red = Color3.fromRGB(230, 70, 85),
+    Orange = Color3.fromRGB(230, 150, 60),
+    Input = Color3.fromRGB(240, 241, 250)
 }
-
 local function C()
     return isDarkTheme and Dark or Light
 end
-
---========================================================--
--- GUI
---========================================================--
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MedaHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = PlayerGui
-
---========================================================--
--- UTILITY
---========================================================--
-
 local function addCorner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius or 10)
     c.Parent = parent
     return c
 end
-
+-- Glass edge: bright highlight at the top that fades toward the bottom
 local function addStroke(parent, color, thickness, transparency)
     local s = Instance.new("UIStroke")
     s.Color = color or C().Stroke
     s.Thickness = thickness or 1
-    s.Transparency = transparency or 0
+    s.Transparency = transparency or 0.55
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     s.Parent = parent
+    local g = Instance.new("UIGradient")
+    g.Rotation = 90
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 200))
+    })
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.15),
+        NumberSequenceKeypoint.new(0.5, 0.7),
+        NumberSequenceKeypoint.new(1, 0.9)
+    })
+    g.Parent = s
     return s
 end
-
+-- Applies the glass look to any window: translucent body, inner sheen, soft outer glow
+local function makeGlass(frame, radius)
+    frame.BackgroundColor3 = C().Background
+    frame.BackgroundTransparency = 0.18
+    addCorner(frame, radius or 22)
+    addStroke(frame, C().Stroke, 1, 0.5)
+    local sheen = Instance.new("Frame")
+    sheen.Name = "GlassSheen"
+    sheen.Parent = frame
+    sheen.Size = UDim2.new(1, 0, 0.5, 0)
+    sheen.BackgroundColor3 = Color3.new(1, 1, 1)
+    sheen.BackgroundTransparency = 0.9
+    sheen.BorderSizePixel = 0
+    sheen.ZIndex = frame.ZIndex
+    sheen.Active = false
+    addCorner(sheen, radius or 22)
+    local sg = Instance.new("UIGradient")
+    sg.Rotation = 90
+    sg.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.82),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    sg.Parent = sheen
+    return frame
+end
 local function addGradient(parent, color1, color2, rotation)
     local g = Instance.new("UIGradient")
     g.Color = ColorSequence.new({
@@ -145,7 +132,6 @@ local function addGradient(parent, color1, color2, rotation)
     g.Parent = parent
     return g
 end
-
 local function createLabel(parent, text, size, position, font, textSize)
     local label = Instance.new("TextLabel")
     label.Parent = parent
@@ -160,40 +146,30 @@ local function createLabel(parent, text, size, position, font, textSize)
     label.TextYAlignment = Enum.TextYAlignment.Center
     return label
 end
-
 local function tween(instance, info, properties)
     return TweenService:Create(instance, info, properties)
 end
-
 local FAST_TWEEN = TweenInfo.new(
     0.12,
     Enum.EasingStyle.Quart,
     Enum.EasingDirection.Out
 )
-
 local NORMAL_TWEEN = TweenInfo.new(
     0.22,
     Enum.EasingStyle.Quart,
     Enum.EasingDirection.Out
 )
-
---========================================================--
--- NOTIFICATIONS
---========================================================--
-
 local NotificationHolder = Instance.new("Frame")
 NotificationHolder.Parent = ScreenGui
 NotificationHolder.Size = UDim2.fromOffset(320, 400)
 NotificationHolder.Position = UDim2.new(1, -335, 0, 20)
 NotificationHolder.BackgroundTransparency = 1
 NotificationHolder.ZIndex = 200
-
 local NotificationLayout = Instance.new("UIListLayout")
 NotificationLayout.Parent = NotificationHolder
 NotificationLayout.Padding = UDim.new(0, 8)
 NotificationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 NotificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
 local function showNotification(message, notificationColor)
     local holder = Instance.new("Frame")
     holder.Parent = NotificationHolder
@@ -202,10 +178,8 @@ local function showNotification(message, notificationColor)
     holder.BackgroundTransparency = 1
     holder.BorderSizePixel = 0
     holder.ZIndex = 201
-
-    addCorner(holder, 12)
+    addCorner(holder, 16)
     addStroke(holder, C().Stroke, 1, 0.15)
-
     local accent = Instance.new("Frame")
     accent.Parent = holder
     accent.Size = UDim2.fromOffset(4, 34)
@@ -214,7 +188,6 @@ local function showNotification(message, notificationColor)
     accent.BorderSizePixel = 0
     accent.ZIndex = 202
     addCorner(accent, 3)
-
     local text = createLabel(
         holder,
         message,
@@ -223,31 +196,24 @@ local function showNotification(message, notificationColor)
         Enum.Font.GothamMedium,
         12
     )
-
     text.TextTransparency = 1
     text.ZIndex = 202
-
     tween(holder, NORMAL_TWEEN, {
         BackgroundTransparency = 0
     }):Play()
-
     tween(text, NORMAL_TWEEN, {
         TextTransparency = 0
     }):Play()
-
     task.delay(2.3, function()
         if holder and holder.Parent then
             local out = tween(holder, NORMAL_TWEEN, {
                 BackgroundTransparency = 1,
                 Size = UDim2.fromOffset(260, 0)
             })
-
             tween(text, NORMAL_TWEEN, {
                 TextTransparency = 1
             }):Play()
-
             out:Play()
-
             out.Completed:Connect(function()
                 if holder then
                     holder:Destroy()
@@ -256,11 +222,6 @@ local function showNotification(message, notificationColor)
         end
     end)
 end
-
---========================================================--
--- MAIN MENU
---========================================================--
-
 local MenuFrame = Instance.new("Frame")
 MenuFrame.Name = "MenuFrame"
 MenuFrame.Parent = ScreenGui
@@ -276,14 +237,63 @@ MenuFrame.BorderSizePixel = 0
 MenuFrame.Active = true
 MenuFrame.ClipsDescendants = true
 MenuFrame.ZIndex = 10
-
-addCorner(MenuFrame, 16)
-addStroke(MenuFrame, C().Stroke, 1, 0.05)
-
---========================================================--
--- HEADER
---========================================================--
-
+makeGlass(MenuFrame, 24)
+-- Starfield behind the menu: faint twinkling stars that fade in when the menu opens
+-- and fade out smoothly when it closes or is minimized (visual only)
+local starField = Instance.new("Frame")
+starField.Name = "StarField"
+starField.Parent = ScreenGui
+starField.Size = UDim2.fromScale(1, 1)
+starField.BackgroundTransparency = 1
+starField.BorderSizePixel = 0
+starField.ZIndex = 1
+starField.Active = false
+local stars = {}
+for i = 1, 70 do
+    local star = Instance.new("Frame")
+    star.Parent = starField
+    local size = math.random(3, 5)
+    star.Size = UDim2.fromOffset(size, size)
+    star.AnchorPoint = Vector2.new(0.5, 0.5)
+    star.BackgroundColor3 = Color3.new(1, 1, 1)
+    star.BackgroundTransparency = 1
+    star.BorderSizePixel = 0
+    star.ZIndex = 1
+    star.Active = false
+    addCorner(star, 999)
+    table.insert(stars, {
+        Frame = star,
+        X = math.random(),
+        Y = math.random(),
+        Drift = math.random(3, 12) / 1000,
+        Phase = math.random() * math.pi * 2
+    })
+end
+local starFade = 0
+task.spawn(function()
+    local elapsed = 0
+    while ScreenGui and ScreenGui.Parent do
+        local dt = task.wait(1 / 30)
+        elapsed = elapsed + dt
+        local open = MenuFrame.Visible and MenuFrame.Size.X.Offset > 100
+        local target = open and 1 or 0
+        starFade = starFade + (target - starFade) * math.min(dt * 3, 1)
+        for _, star in ipairs(stars) do
+            star.Y = star.Y - star.Drift * dt
+            if star.Y < 0 then
+                star.Y = 1
+                star.X = math.random()
+            end
+            local twinkle = 0.5 + 0.5 * math.sin(elapsed * 2 + star.Phase)
+            star.Frame.Position = UDim2.fromScale(star.X, star.Y)
+            star.Frame.BackgroundTransparency = 1 - starFade * (0.5 + 0.5 * twinkle)
+        end
+    end
+end)
+local MenuTint = Instance.new("UIGradient")
+MenuTint.Rotation = 135
+MenuTint.Color = ColorSequence.new(Color3.fromRGB(78, 66, 140), Color3.fromRGB(26, 26, 38))
+MenuTint.Parent = MenuFrame
 local HeaderFrame = Instance.new("Frame")
 HeaderFrame.Name = "HeaderFrame"
 HeaderFrame.Parent = MenuFrame
@@ -292,8 +302,8 @@ HeaderFrame.BackgroundColor3 = C().Header
 HeaderFrame.BorderSizePixel = 0
 HeaderFrame.ZIndex = 11
 HeaderFrame.Active = true
-addCorner(HeaderFrame, 16)
-
+HeaderFrame.BackgroundTransparency = 0.35
+addCorner(HeaderFrame, 22)
 local HeaderBottom = Instance.new("Frame")
 HeaderBottom.Parent = HeaderFrame
 HeaderBottom.Size = UDim2.new(1, -30, 0, 2)
@@ -303,11 +313,6 @@ HeaderBottom.BorderSizePixel = 0
 HeaderBottom.ZIndex = 13
 addCorner(HeaderBottom, 2)
 addGradient(HeaderBottom, C().Accent, C().Accent2, 0)
-
---========================================================--
--- LOGO
---========================================================--
-
 local Logo = Instance.new("Frame")
 Logo.Parent = HeaderFrame
 Logo.Size = UDim2.fromOffset(40, 40)
@@ -317,7 +322,6 @@ Logo.BorderSizePixel = 0
 Logo.ZIndex = 15
 addCorner(Logo, 11)
 addGradient(Logo, C().Accent, C().Accent2, 45)
-
 local LogoText = createLabel(
     Logo,
     "M",
@@ -329,11 +333,6 @@ local LogoText = createLabel(
 LogoText.TextColor3 = Color3.new(1, 1, 1)
 LogoText.TextXAlignment = Enum.TextXAlignment.Center
 LogoText.ZIndex = 16
-
---========================================================--
--- TITLE
---========================================================--
-
 local HeaderLabel = createLabel(
     HeaderFrame,
     "MEDA HUB",
@@ -343,7 +342,6 @@ local HeaderLabel = createLabel(
     16
 )
 HeaderLabel.ZIndex = 15
-
 local HeaderSub = createLabel(
     HeaderFrame,
     "Script v3  •  @meda898",
@@ -354,11 +352,6 @@ local HeaderSub = createLabel(
 )
 HeaderSub.TextColor3 = C().SubText
 HeaderSub.ZIndex = 15
-
---========================================================--
--- HEADER BUTTON
---========================================================--
-
 local function makeHeaderButton(symbol, offset)
     local button = Instance.new("TextButton")
     button.Parent = HeaderFrame
@@ -376,18 +369,11 @@ local function makeHeaderButton(symbol, offset)
     addStroke(button, C().Stroke, 1, 0.25)
     return button
 end
-
 local MenuSettingsButton = makeHeaderButton("⚙", -157)
 local ThemeButton = makeHeaderButton("☾", -120)
 local MinimizeButton = makeHeaderButton("—", -83)
 local CloseButton = makeHeaderButton("×", -46)
-
 CloseButton.BackgroundColor3 = Color3.fromRGB(180, 55, 70)
-
---========================================================--
--- CONTENT
---========================================================--
-
 local Content = Instance.new("ScrollingFrame")
 Content.Parent = MenuFrame
 Content.Size = UDim2.new(1, -30, 1, -84)
@@ -403,7 +389,6 @@ Content.VerticalScrollBarInset = Enum.ScrollBarInset.Always
 Content.CanvasSize = UDim2.fromOffset(0, 315)
 Content.CanvasPosition = Vector2.new(0, 0)
 Content.ElasticBehavior = Enum.ElasticBehavior.Never
-
 local SectionTitle = createLabel(
     Content,
     "MOVEMENT",
@@ -414,13 +399,7 @@ local SectionTitle = createLabel(
 )
 SectionTitle.TextColor3 = C().SubText
 SectionTitle.ZIndex = 12
-
---========================================================--
--- FEATURE BUTTON
---========================================================--
-
 local featureData = {}
-
 local function createFeatureButton(text, icon, x, y)
     local button = Instance.new("TextButton")
     button.Parent = Content
@@ -431,10 +410,8 @@ local function createFeatureButton(text, icon, x, y)
     button.Text = ""
     button.AutoButtonColor = false
     button.ZIndex = 12
-
-    addCorner(button, 11)
+    addCorner(button, 16)
     addStroke(button, C().Stroke, 1, 0.2)
-
     local iconBox = Instance.new("Frame")
     iconBox.Parent = button
     iconBox.Size = UDim2.fromOffset(36, 36)
@@ -443,7 +420,6 @@ local function createFeatureButton(text, icon, x, y)
     iconBox.BorderSizePixel = 0
     iconBox.ZIndex = 13
     addCorner(iconBox, 9)
-
     local iconLabel = createLabel(
         iconBox,
         icon,
@@ -455,7 +431,6 @@ local function createFeatureButton(text, icon, x, y)
     iconLabel.TextXAlignment = Enum.TextXAlignment.Center
     iconLabel.TextColor3 = C().Accent
     iconLabel.ZIndex = 14
-
     local title = createLabel(
         button,
         text,
@@ -465,7 +440,6 @@ local function createFeatureButton(text, icon, x, y)
         12
     )
     title.ZIndex = 14
-
     local status = createLabel(
         button,
         "●  OFF",
@@ -476,42 +450,25 @@ local function createFeatureButton(text, icon, x, y)
     )
     status.TextColor3 = C().SubText
     status.ZIndex = 14
-
     featureData[button] = {
         Status = status,
         Icon = iconBox,
         Title = title
     }
-
     return button, status
 end
-
---========================================================--
--- MAIN BUTTONS
---========================================================--
-
 local ActivateButton, FlyStatus =
     createFeatureButton("Fly", "✈", 0, 29)
-
 local WallHackButton, WallStatus =
     createFeatureButton("WallHack", "◈", 212, 29)
-
 local SpeedHackButton, SpeedStatus =
     createFeatureButton("SpeedHack", "ϟ", 0, 96)
-
 local NoclipButton, NoclipStatus =
     createFeatureButton("Noclip", "◇", 212, 96)
-
 local InfiniteJumpButton, JumpStatus =
     createFeatureButton("Infinite Jump", "↑", 0, 163)
-
 local TeleportButton, TeleportStatus =
     createFeatureButton("Teleport", "◎", 212, 163)
-
---========================================================--
--- CHECKPOINTS ENTRY
---========================================================--
-
 local CheckpointButton = Instance.new("TextButton")
 CheckpointButton.Parent = Content
 CheckpointButton.Size = UDim2.fromOffset(198, 58)
@@ -521,9 +478,8 @@ CheckpointButton.BorderSizePixel = 0
 CheckpointButton.Text = ""
 CheckpointButton.AutoButtonColor = false
 CheckpointButton.ZIndex = 12
-addCorner(CheckpointButton, 11)
+addCorner(CheckpointButton, 16)
 addStroke(CheckpointButton, C().Stroke, 1, 0.2)
-
 local CheckpointIcon = Instance.new("Frame")
 CheckpointIcon.Parent = CheckpointButton
 CheckpointIcon.Size = UDim2.fromOffset(36, 36)
@@ -557,14 +513,8 @@ CheckpointSwitchDot.BackgroundColor3 = C().SubText
 CheckpointSwitchDot.BorderSizePixel = 0
 CheckpointSwitchDot.ZIndex = 16
 addCorner(CheckpointSwitchDot,9)
-
 FlyStatus.Text = "ЗАГРУЗИТЬ"
 FlyStatus.TextColor3 = C().SubText
-
---========================================================--
--- SPEED SETTINGS BUTTON
---========================================================--
-
 local SpeedSettingsButton = Instance.new("TextButton")
 SpeedSettingsButton.Parent = Content
 SpeedSettingsButton.Size = UDim2.fromOffset(24, 24)
@@ -578,11 +528,6 @@ SpeedSettingsButton.TextSize = 11
 SpeedSettingsButton.AutoButtonColor = false
 SpeedSettingsButton.ZIndex = 20
 addCorner(SpeedSettingsButton, 7)
-
---========================================================--
--- WALLHACK SETTINGS BUTTON
---========================================================--
-
 local WallHackSettingsButton = Instance.new("TextButton")
 WallHackSettingsButton.Parent = Content
 WallHackSettingsButton.Size = UDim2.fromOffset(24, 24)
@@ -596,11 +541,6 @@ WallHackSettingsButton.TextSize = 11
 WallHackSettingsButton.AutoButtonColor = false
 WallHackSettingsButton.ZIndex = 20
 addCorner(WallHackSettingsButton, 7)
-
---========================================================--
--- MINIMIZED
---========================================================--
-
 local MinimizedContentLabel = Instance.new("TextButton")
 MinimizedContentLabel.Parent = MenuFrame
 MinimizedContentLabel.Size = UDim2.fromScale(1, 1)
@@ -615,13 +555,7 @@ MinimizedContentLabel.AutoButtonColor = false
 MinimizedContentLabel.Visible = false
 MinimizedContentLabel.Active = true
 MinimizedContentLabel.ZIndex = 30
-
---========================================================--
--- PANEL CREATOR
---========================================================--
-
 local panelHeaders = {}
-
 local function createPanel(name, title)
     local panel = Instance.new("Frame")
     panel.Name = name
@@ -639,10 +573,7 @@ local function createPanel(name, title)
     panel.Active = true
     panel.ClipsDescendants = true
     panel.ZIndex = 60
-
-    addCorner(panel, 16)
-    addStroke(panel, C().Stroke, 1, 0.05)
-
+    makeGlass(panel, 24)
     local header = Instance.new("Frame")
     header.Parent = panel
     header.Size = UDim2.new(1, 0, 0, 58)
@@ -650,8 +581,8 @@ local function createPanel(name, title)
     header.BorderSizePixel = 0
     header.ZIndex = 61
     header.Active = true
-    addCorner(header, 16)
-
+    header.BackgroundTransparency = 0.35
+    addCorner(header, 22)
     local line = Instance.new("Frame")
     line.Parent = header
     line.Size = UDim2.new(1, -28, 0, 2)
@@ -660,7 +591,6 @@ local function createPanel(name, title)
     line.BorderSizePixel = 0
     line.ZIndex = 63
     addCorner(line, 2)
-
     local titleLabel = createLabel(
         header,
         title,
@@ -670,7 +600,6 @@ local function createPanel(name, title)
         15
     )
     titleLabel.ZIndex = 64
-
     local close = Instance.new("TextButton")
     close.Parent = header
     close.Size = UDim2.fromOffset(31, 31)
@@ -684,7 +613,6 @@ local function createPanel(name, title)
     close.AutoButtonColor = false
     close.ZIndex = 65
     addCorner(close, 8)
-
     local body = Instance.new("ScrollingFrame")
     body.Parent = panel
     body.Size = UDim2.new(1, -24, 1, -74)
@@ -695,54 +623,37 @@ local function createPanel(name, title)
     body.ScrollBarImageColor3 = C().Accent
     body.CanvasSize = UDim2.new(0, 0, 0, 0)
     body.ZIndex = 62
-
     local layout = Instance.new("UIListLayout")
     layout.Parent = body
     layout.Padding = UDim.new(0, 5)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         body.CanvasSize = UDim2.fromOffset(
             0,
             layout.AbsoluteContentSize.Y + 8
         )
     end)
-
     panelHeaders[panel] = header
-
     return panel, header, close, body
 end
-
---========================================================--
--- PANELS
---========================================================--
-
 local TeleportPanel,
 TeleportHeaderFrame,
 TeleportCloseButton,
 PlayerList =
     createPanel("TeleportPanel", "◎  TELEPORT")
-
 local SpeedSettingsPanel,
 SpeedSettingsHeaderFrame,
 SpeedSettingsCloseButton,
 SpeedSettingsList =
     createPanel("SpeedSettingsPanel", "ϟ  НАСТРОЙКИ СКОРОСТИ")
-
 local WallHackSettingsPanel,
 WallHackSettingsHeaderFrame,
 WallHackSettingsCloseButton,
 WallHackSettingsList =
     createPanel("WallHackSettingsPanel", "◈  НАСТРОЙКИ WALLHACK")
-
---========================================================--
--- WALLHACK SETTINGS / NICKNAMES
---========================================================--
-
 local showNicknames = false
 local showHealth = false
 local nicknameDistance = 500
-
 local NicknamesButton = Instance.new("TextButton")
 NicknamesButton.Parent = WallHackSettingsList
 NicknamesButton.Size = UDim2.new(1, -4, 0, 36)
@@ -756,7 +667,6 @@ NicknamesButton.AutoButtonColor = false
 NicknamesButton.ZIndex = 70
 addCorner(NicknamesButton, 10)
 addStroke(NicknamesButton, C().Stroke, 1, 0.15)
-
 local NicknamesInfo = createLabel(
     WallHackSettingsList,
     "Username сверху • Display Name снизу",
@@ -767,11 +677,6 @@ local NicknamesInfo = createLabel(
 )
 NicknamesInfo.TextColor3 = C().SubText
 NicknamesInfo.ZIndex = 70
-
---========================================================--
--- HEALTH DISPLAY TOGGLE
---========================================================--
-
 local HealthButton = Instance.new("TextButton")
 HealthButton.Parent = WallHackSettingsList
 HealthButton.Size = UDim2.new(1, -4, 0, 36)
@@ -785,7 +690,6 @@ HealthButton.AutoButtonColor = false
 HealthButton.ZIndex = 70
 addCorner(HealthButton, 10)
 addStroke(HealthButton, C().Stroke, 1, 0.15)
-
 local HealthInfo = createLabel(
     WallHackSettingsList,
     "Компактная полоска HP рядом с никнеймом",
@@ -796,20 +700,13 @@ local HealthInfo = createLabel(
 )
 HealthInfo.TextColor3 = C().SubText
 HealthInfo.ZIndex = 70
-
 local MenuSettingsPanel,
 MenuSettingsHeaderFrame,
 MenuSettingsCloseButton,
 MenuSettingsList =
     createPanel("MenuSettingsPanel", "⚙  НАСТРОЙКИ МЕНЮ")
-
 local CheckpointPanel, CheckpointHeaderFrame, CheckpointCloseButton, CheckpointList =
     createPanel("CheckpointPanel", "⌖  ЧЕКПОИНТЫ")
-
---========================================================--
--- SPEED INPUT
---========================================================--
-
 local SpeedSettingsInput = Instance.new("TextBox")
 SpeedSettingsInput.Parent = SpeedSettingsList
 SpeedSettingsInput.Size = UDim2.new(1, -4, 0, 45)
@@ -825,7 +722,6 @@ SpeedSettingsInput.ClearTextOnFocus = false
 SpeedSettingsInput.ZIndex = 70
 addCorner(SpeedSettingsInput, 10)
 addStroke(SpeedSettingsInput, C().Stroke, 1, 0.15)
-
 local SpeedInfo = createLabel(
     SpeedSettingsList,
     "Рекомендуемое значение: 16–100",
@@ -835,11 +731,6 @@ local SpeedInfo = createLabel(
     10
 )
 SpeedInfo.TextColor3 = C().SubText
-
---========================================================--
--- AUTO SPEED
---========================================================--
-
 local AutoSpeedMaintainButton = Instance.new("TextButton")
 AutoSpeedMaintainButton.Parent = SpeedSettingsList
 AutoSpeedMaintainButton.Size = UDim2.new(1, -4, 0, 36)
@@ -854,11 +745,6 @@ AutoSpeedMaintainButton.AutoButtonColor = false
 AutoSpeedMaintainButton.ZIndex = 70
 addCorner(AutoSpeedMaintainButton, 10)
 addStroke(AutoSpeedMaintainButton, C().Stroke, 1, 0.15)
-
---========================================================--
--- MENU SETTINGS
---========================================================--
-
 local OutOfBoundsButton = Instance.new("TextButton")
 OutOfBoundsButton.Parent = MenuSettingsList
 OutOfBoundsButton.Size = UDim2.new(1, -4, 0, 36)
@@ -873,7 +759,6 @@ OutOfBoundsButton.AutoButtonColor = false
 OutOfBoundsButton.ZIndex = 70
 addCorner(OutOfBoundsButton, 10)
 addStroke(OutOfBoundsButton, C().Stroke, 1, 0.15)
-
 local OutOfBoundsDescription = createLabel(
     MenuSettingsList,
     "Позволяет перетаскивать меню за пределы экрана.",
@@ -886,7 +771,6 @@ OutOfBoundsDescription.TextColor3 = C().SubText
 OutOfBoundsDescription.TextWrapped = true
 OutOfBoundsDescription.TextYAlignment = Enum.TextYAlignment.Top
 OutOfBoundsDescription.ZIndex = 70
-
 local TransparencyTitle = createLabel(
     MenuSettingsList,
     "Прозрачность при перетаскивании",
@@ -897,7 +781,6 @@ local TransparencyTitle = createLabel(
 )
 TransparencyTitle.TextColor3 = C().Text
 TransparencyTitle.ZIndex = 70
-
 local TransparencyValue = createLabel(
     MenuSettingsList,
     "45%",
@@ -909,7 +792,6 @@ local TransparencyValue = createLabel(
 TransparencyValue.TextColor3 = C().Accent
 TransparencyValue.TextXAlignment = Enum.TextXAlignment.Right
 TransparencyValue.ZIndex = 70
-
 local TransparencySlider = Instance.new("Frame")
 TransparencySlider.Parent = MenuSettingsList
 TransparencySlider.Size = UDim2.new(1, -4, 0, 38)
@@ -917,14 +799,12 @@ TransparencySlider.BackgroundColor3 = C().Surface
 TransparencySlider.BorderSizePixel = 0
 TransparencySlider.ZIndex = 70
 addCorner(TransparencySlider, 10)
-
 local TransparencySliderStroke = addStroke(
     TransparencySlider,
     C().Stroke,
     1,
     0.15
 )
-
 local SliderTrack = Instance.new("Frame")
 SliderTrack.Parent = TransparencySlider
 SliderTrack.Size = UDim2.new(1, -32, 0, 6)
@@ -933,7 +813,6 @@ SliderTrack.BackgroundColor3 = C().Surface2
 SliderTrack.BorderSizePixel = 0
 SliderTrack.ZIndex = 71
 addCorner(SliderTrack, 3)
-
 local SliderFill = Instance.new("Frame")
 SliderFill.Parent = SliderTrack
 SliderFill.Size = UDim2.new(
@@ -946,7 +825,6 @@ SliderFill.BackgroundColor3 = C().Accent
 SliderFill.BorderSizePixel = 0
 SliderFill.ZIndex = 72
 addCorner(SliderFill, 3)
-
 local SliderKnob = Instance.new("TextButton")
 SliderKnob.Parent = SliderTrack
 SliderKnob.Size = UDim2.fromOffset(24, 24)
@@ -964,7 +842,6 @@ SliderKnob.AutoButtonColor = false
 SliderKnob.Active = true
 SliderKnob.ZIndex = 74
 addCorner(SliderKnob, 12)
-
 local TransparencyDescription = createLabel(
     MenuSettingsList,
     "Чем выше значение — тем прозрачнее меню во время перетаскивания.",
@@ -977,14 +854,8 @@ TransparencyDescription.TextColor3 = C().SubText
 TransparencyDescription.TextWrapped = true
 TransparencyDescription.TextYAlignment = Enum.TextYAlignment.Top
 TransparencyDescription.ZIndex = 70
-
 local openPanel
 local closePanel
-
---========================================================--
--- CHECKPOINTS
---========================================================--
-
 local checkpoints = {}
 local checkpointRouteRunning = false
 local checkpointCurrentIndex = 1
@@ -992,7 +863,6 @@ local checkpointRouteSpeed = 16
 local checkpointFolder = Instance.new("Folder")
 checkpointFolder.Name = "MedaCheckpoints"
 checkpointFolder.Parent = workspace
-
 local function createCheckpointAction(text)
     local b=Instance.new("TextButton")
     b.Parent=CheckpointList; b.Size=UDim2.new(1,-4,0,43); b.BackgroundColor3=C().Surface; b.BorderSizePixel=0
@@ -1015,7 +885,6 @@ CheckpointSpeedInput.Text="16"; CheckpointSpeedInput.PlaceholderText="16 или 
 addCorner(CheckpointSpeedInput,10); addStroke(CheckpointSpeedInput,C().Stroke,1,0.15)
 local CheckpointSpeedHint=createLabel(CheckpointList,"1+ studs/sec • inf = мгновенное перемещение",UDim2.new(1,-4,0,25),UDim2.fromOffset(0,0),Enum.Font.Gotham,9)
 CheckpointSpeedHint.TextColor3=C().SubText; CheckpointSpeedHint.ZIndex=70
-
 local function checkpointRoot() local c=LocalPlayer.Character; return c and c:FindFirstChild("HumanoidRootPart") end
 local function updateCheckpointUI()
     local n=#checkpoints; CheckpointCountLabel.Text="Точек: "..n
@@ -1042,7 +911,6 @@ local function parseCheckpointSpeed(x) x=string.lower(tostring(x)):gsub("%s+",""
 local function moveCheckpoint(target) local r=checkpointRoot(); if not r then return false end; if checkpointRouteSpeed==math.huge then r.CFrame=CFrame.new(target); return true end; local start=r.Position; local d=(target-start).Magnitude; if d<=.05 then return true end; local dur=d/checkpointRouteSpeed; local e=0; while e<dur do if not checkpointRouteRunning then return false end; local cur=checkpointRoot(); if not cur then return false end; e+=RunService.Heartbeat:Wait(); cur.CFrame=CFrame.new(start:Lerp(target,math.clamp(e/dur,0,1))) end; return true end
 local function stopCheckpointRoute(silent) checkpointRouteRunning=false; checkpointCurrentIndex=1; updateCheckpointUI(); if not silent then showNotification("Маршрут остановлен",C().Red) end end
 local function startCheckpointRoute() if checkpointRouteRunning then stopCheckpointRoute(false); return end; if #checkpoints<2 then showNotification("Нужно минимум 2 точки",C().Red); return end; local sp=parseCheckpointSpeed(CheckpointSpeedInput.Text); if not sp then showNotification("Введите скорость от 1 или inf",C().Red); return end; checkpointRouteSpeed=sp; checkpointRouteRunning=true; updateCheckpointUI(); showNotification("Маршрут запущен",C().Green); task.spawn(function() while checkpointRouteRunning do local cp=checkpoints[checkpointCurrentIndex]; if not cp then break end; CheckpointStatus.Text="Точка "..checkpointCurrentIndex.." / "..#checkpoints; if moveCheckpoint(cp.Position) then checkpointCurrentIndex=checkpointCurrentIndex+1; if checkpointCurrentIndex>#checkpoints then checkpointCurrentIndex=1 end else task.wait(.1) end; task.wait() end; if checkpointRouteRunning then stopCheckpointRoute(true) end end) end
-
 CheckpointButton.MouseButton1Click:Connect(function() CheckpointPanel.Position=MenuFrame.Position; openPanel(CheckpointPanel) end)
 CheckpointCloseButton.MouseButton1Click:Connect(function() closePanel(CheckpointPanel) end)
 CheckpointAddButton.MouseButton1Click:Connect(addCheckpoint)
@@ -1050,50 +918,37 @@ CheckpointStartButton.MouseButton1Click:Connect(startCheckpointRoute)
 CheckpointDeleteButton.MouseButton1Click:Connect(removeLastCheckpoint)
 CheckpointClearButton.MouseButton1Click:Connect(clearCheckpoints)
 CheckpointSpeedInput.FocusLost:Connect(function(enter) if enter then local sp=parseCheckpointSpeed(CheckpointSpeedInput.Text); if sp then checkpointRouteSpeed=sp else CheckpointSpeedInput.Text=tostring(checkpointRouteSpeed); showNotification("Неверная скорость",C().Red) end end end)
-
---========================================================--
--- SLIDER
---========================================================--
-
 local sliderDragging = false
-
 local function updateTransparencySlider(inputX)
     local absolutePosition = SliderTrack.AbsolutePosition
     local absoluteSize = SliderTrack.AbsoluteSize
-
     local percent = math.clamp(
         (inputX - absolutePosition.X) / absoluteSize.X,
         0,
         1
     )
-
     dragTransparency = percent * MAX_DRAG_TRANSPARENCY
-
     SliderFill.Size = UDim2.new(
         percent,
         0,
         1,
         0
     )
-
     SliderKnob.Position = UDim2.new(
         percent,
         0,
         0.5,
         0
     )
-
     TransparencyValue.Text =
         tostring(
             math.floor(
                 dragTransparency * 100 + 0.5
             )
         ) .. "%"
-
     if isDraggingMenu then
         for _, data in ipairs(dragTransparencyObjects) do
             local object = data.Object
-
             if object
                 and object.Parent
                 and object ~= HeaderFrame
@@ -1105,7 +960,6 @@ local function updateTransparencySlider(inputX)
         end
     end
 end
-
 SliderKnob.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
@@ -1114,7 +968,6 @@ SliderKnob.InputBegan:Connect(function(input)
         updateTransparencySlider(input.Position.X)
     end
 end)
-
 TransparencySlider.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
@@ -1123,16 +976,20 @@ TransparencySlider.InputBegan:Connect(function(input)
         updateTransparencySlider(input.Position.X)
     end
 end)
-
---========================================================--
--- BUTTON FEEDBACK
---========================================================--
-
 local function setupButtonFeedback(button)
     if not button then
         return
     end
-
+    button.MouseButton1Down:Connect(function()
+        if button.Parent then
+            tween(button, FAST_TWEEN, {BackgroundColor3 = C().SurfaceHover}):Play()
+        end
+    end)
+    button.MouseButton1Up:Connect(function()
+        if button.Parent then
+            tween(button, FAST_TWEEN, {BackgroundColor3 = C().Surface}):Play()
+        end
+    end)
     button.MouseEnter:Connect(function()
         if button.Parent then
             tween(button, FAST_TWEEN, {
@@ -1140,7 +997,6 @@ local function setupButtonFeedback(button)
             }):Play()
         end
     end)
-
     button.MouseLeave:Connect(function()
         if button.Parent then
             tween(button, FAST_TWEEN, {
@@ -1149,7 +1005,6 @@ local function setupButtonFeedback(button)
         end
     end)
 end
-
 for _, button in ipairs({
     ActivateButton,
     WallHackButton,
@@ -1158,20 +1013,16 @@ for _, button in ipairs({
     InfiniteJumpButton,
     TeleportButton,
     CheckpointButton, CheckpointAddButton, CheckpointStartButton, CheckpointDeleteButton, CheckpointClearButton,
-
     SpeedSettingsButton,
     WallHackSettingsButton,
     NicknamesButton,
     HealthButton,
-
     AutoSpeedMaintainButton,
     OutOfBoundsButton,
-
     ThemeButton,
     MinimizeButton,
     CloseButton,
     MenuSettingsButton,
-
     TeleportCloseButton,
     SpeedSettingsCloseButton,
     WallHackSettingsCloseButton,
@@ -1180,103 +1031,74 @@ for _, button in ipairs({
 }) do
     setupButtonFeedback(button)
 end
-
---========================================================--
--- FEATURE STATE
---========================================================--
-
 local isSpeedHackEnabled = false
 local isWallHackEnabled = false
 local isNoclipEnabled = false
 local isInfiniteJumpEnabled = false
-
 local function setFeatureState(button, enabled)
     local data = featureData[button]
-
     if not data then
         return
     end
-
     local iconLabel =
         data.Icon:FindFirstChildOfClass("TextLabel")
-
     if enabled then
         data.Status.Text = "●  ON"
         data.Status.TextColor3 = C().Green
-
         data.Icon.BackgroundColor3 =
             Color3.fromRGB(30, 65, 50)
-
         if iconLabel then
             iconLabel.TextColor3 = C().Green
         end
     else
         data.Status.Text = "●  OFF"
         data.Status.TextColor3 = C().SubText
-
         data.Icon.BackgroundColor3 =
             C().Surface2
-
         if iconLabel then
             iconLabel.TextColor3 = C().Accent
         end
     end
 end
-
---========================================================--
--- DRAG TRANSPARENCY
---========================================================--
-
 local function isInsideHeader(object, rootFrame)
     if not object or not rootFrame then
         return false
     end
-
     if rootFrame == MenuFrame then
         if object == HeaderFrame then
             return true
         end
-
         if object:IsDescendantOf(HeaderFrame) then
             return true
         end
     else
         local header = panelHeaders[rootFrame]
-
         if header then
             if object == header then
                 return true
             end
-
             if object:IsDescendantOf(header) then
                 return true
             end
         end
     end
-
     return false
 end
-
 local function collectDragTransparencyObjects(rootFrame)
     table.clear(dragTransparencyObjects)
-
     if not rootFrame then
         return
     end
-
     local function addObject(object)
         if not object:IsA("GuiObject") then
             return
         end
-
         if isInsideHeader(object, rootFrame) then
             return
         end
-
         if object.BackgroundTransparency >= 1 then
             return
         end
-
         table.insert(
             dragTransparencyObjects,
             {
@@ -1286,25 +1108,19 @@ local function collectDragTransparencyObjects(rootFrame)
             }
         )
     end
-
     addObject(rootFrame)
-
     for _, object in ipairs(rootFrame:GetDescendants()) do
         addObject(object)
     end
 end
-
 local function setDragTransparency(rootFrame, enabled)
     if not rootFrame then
         return
     end
-
     if enabled then
         collectDragTransparencyObjects(rootFrame)
-
         for _, data in ipairs(dragTransparencyObjects) do
             local object = data.Object
-
             if object
                 and object.Parent
                 and not isInsideHeader(object, rootFrame)
@@ -1317,114 +1133,88 @@ local function setDragTransparency(rootFrame, enabled)
                     )
             end
         end
-
         isDraggingMenu = true
     else
         for _, data in ipairs(dragTransparencyObjects) do
             local object = data.Object
-
             if object and object.Parent then
                 object.BackgroundTransparency =
                     data.OriginalTransparency
             end
         end
-
         table.clear(dragTransparencyObjects)
         isDraggingMenu = false
     end
 end
-
---========================================================--
--- DRAGGING
---========================================================--
-
 local dragData = {
     active = false,
     frame = nil,
     startMouse = nil,
     startPosition = nil
 }
-
 local function clampPosition(frame, position)
     if allowOutOfBounds then
         return position
     end
-
     local viewport = ScreenGui.AbsoluteSize
     local size = frame.AbsoluteSize
-
     local x = math.clamp(
         position.X.Offset,
         0,
         math.max(0, viewport.X - size.X)
     )
-
     local y = math.clamp(
         position.Y.Offset,
         0,
         math.max(0, viewport.Y - size.Y)
     )
-
     return UDim2.fromOffset(x, y)
 end
-
 local function beginDrag(frame, input)
     if dragData.active then
         return
     end
-
     if input.UserInputType ~= Enum.UserInputType.MouseButton1
         and input.UserInputType ~= Enum.UserInputType.Touch
     then
         return
     end
-
     dragData.active = true
     dragData.frame = frame
     dragData.startMouse = input.Position
-
     local absolutePosition = frame.AbsolutePosition
-
     dragData.startPosition =
         UDim2.fromOffset(
             absolutePosition.X,
             absolutePosition.Y
         )
-
     setDragTransparency(frame, true)
 end
-
 local function updateDrag(input)
     if not dragData.active then
         return
     end
-
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
         and input.UserInputType ~= Enum.UserInputType.Touch
     then
         return
     end
-
     if not dragData.frame then
         return
     end
-
     local delta =
         input.Position - dragData.startMouse
-
     local newPosition =
         UDim2.fromOffset(
             dragData.startPosition.X.Offset + delta.X,
             dragData.startPosition.Y.Offset + delta.Y
         )
-
     dragData.frame.Position =
         clampPosition(
             dragData.frame,
             newPosition
         )
 end
-
 local function endDrag()
     if dragData.frame then
         setDragTransparency(
@@ -1432,39 +1222,27 @@ local function endDrag()
             false
         )
     end
-
     dragData.active = false
     dragData.frame = nil
     dragData.startMouse = nil
     dragData.startPosition = nil
 end
-
---========================================================--
--- DRAG CONNECTIONS
---========================================================--
-
 HeaderFrame.InputBegan:Connect(function(input)
     beginDrag(MenuFrame, input)
 end)
-
 MenuSettingsHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(MenuSettingsPanel, input)
 end)
-
 CheckpointHeaderFrame.InputBegan:Connect(function(input) beginDrag(CheckpointPanel,input) end)
-
 SpeedSettingsHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(SpeedSettingsPanel, input)
 end)
-
 WallHackSettingsHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(WallHackSettingsPanel, input)
 end)
-
 TeleportHeaderFrame.InputBegan:Connect(function(input)
     beginDrag(TeleportPanel, input)
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if sliderDragging then
         if input.UserInputType == Enum.UserInputType.MouseMovement
@@ -1473,70 +1251,48 @@ UserInputService.InputChanged:Connect(function(input)
             updateTransparencySlider(input.Position.X)
         end
     end
-
     updateDrag(input)
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
     then
         sliderDragging = false
-
         if dragData.active then
             endDrag()
         end
     end
 end)
-
---========================================================--
--- POSITION
---========================================================--
-
 local savedPosition
-
 local function savePosition()
     savedPosition = MenuFrame.Position
 end
-
 local function loadPosition()
     if savedPosition then
         MenuFrame.Position = savedPosition
     end
 end
-
 loadPosition()
-
---========================================================--
--- PANEL ANIMATIONS
---========================================================--
-
 openPanel = function(panel)
     if not panel then
         return
     end
-
     panel.Visible = true
-
     local targetSize =
         UDim2.fromOffset(
             PANEL_WIDTH,
             PANEL_HEIGHT
         )
-
     panel.Size =
         UDim2.fromOffset(0, 0)
-
     tween(panel, NORMAL_TWEEN, {
         Size = targetSize
     }):Play()
 end
-
 closePanel = function(panel)
     if not panel then
         return
     end
-
     local closeTween = tween(
         panel,
         NORMAL_TWEEN,
@@ -1544,9 +1300,7 @@ closePanel = function(panel)
             Size = UDim2.fromOffset(0, 0)
         }
     )
-
     closeTween:Play()
-
     closeTween.Completed:Connect(function()
         if panel then
             panel.Visible = false
@@ -1558,24 +1312,16 @@ closePanel = function(panel)
         end
     end)
 end
-
---========================================================--
--- CLOSE MAIN MENU
---========================================================--
-
 local function closeMainMenu()
     if dragData.active then
         endDrag()
     end
-
     savePosition()
-
     TeleportPanel.Visible = false
     SpeedSettingsPanel.Visible = false
     WallHackSettingsPanel.Visible = false
     MenuSettingsPanel.Visible = false
     CheckpointPanel.Visible = false
-
     local closeTween = tween(
         MenuFrame,
         NORMAL_TWEEN,
@@ -1583,111 +1329,75 @@ local function closeMainMenu()
             Size = UDim2.fromOffset(0, 0)
         }
     )
-
     closeTween:Play()
-
     closeTween.Completed:Connect(function()
         if not MenuFrame then
             return
         end
-
         MenuFrame.Visible = false
-
         MenuFrame.Size =
             UDim2.fromOffset(
                 MENU_WIDTH,
                 MENU_HEIGHT
             )
-
         HeaderFrame.Visible = true
         Content.Visible = true
         MinimizedContentLabel.Visible = false
     end)
-
     showNotification(
         "Меню закрыто",
         C().Accent
     )
 end
-
---========================================================--
--- MAIN CLOSE BUTTON
---========================================================--
-
 CloseButton.MouseButton1Click:Connect(function()
     closeMainMenu()
 end)
-
---========================================================--
--- THEME
---========================================================--
-
--- Forward declarations: applyTheme() uses these tables below.
 local nicknameGuis = {}
 local healthConnections = {}
-
 local function applyTheme()
     local t = C()
-
     MenuFrame.BackgroundColor3 = t.Background
     HeaderFrame.BackgroundColor3 = t.Header
-
     HeaderLabel.TextColor3 = t.Text
     HeaderSub.TextColor3 = t.SubText
     SectionTitle.TextColor3 = t.SubText
-
     HeaderBottom.BackgroundColor3 = t.Accent
     Logo.BackgroundColor3 = t.Accent
-
     for button, data in pairs(featureData) do
         if button and button.Parent then
             button.BackgroundColor3 = t.Surface
-
             if data.Icon then
                 data.Icon.BackgroundColor3 = t.Surface2
             end
-
             if data.Title then
                 data.Title.TextColor3 = t.Text
             end
         end
     end
-
     SpeedSettingsButton.BackgroundColor3 = t.Surface2
     SpeedSettingsButton.TextColor3 = t.SubText
-
     WallHackSettingsButton.BackgroundColor3 = t.Surface2
     WallHackSettingsButton.TextColor3 = t.SubText
-
     NicknamesButton.BackgroundColor3 = t.Surface
     NicknamesButton.TextColor3 = showNicknames and t.Green or t.Text
-
     HealthButton.BackgroundColor3 = t.Surface
     HealthButton.TextColor3 = showHealth and t.Green or t.Text
-
     SpeedSettingsInput.BackgroundColor3 = t.Input
     SpeedSettingsInput.TextColor3 = t.Text
-
     AutoSpeedMaintainButton.BackgroundColor3 = t.Surface
     AutoSpeedMaintainButton.TextColor3 = t.Text
-
     OutOfBoundsButton.BackgroundColor3 = t.Surface
-
     OutOfBoundsDescription.TextColor3 = t.SubText
-
     OutOfBoundsButton.TextColor3 =
         allowOutOfBounds and t.Green or t.Text
-
     TransparencyTitle.TextColor3 = t.Text
     TransparencyValue.TextColor3 = t.Accent
     TransparencyDescription.TextColor3 = t.SubText
-
     TransparencySlider.BackgroundColor3 = t.Surface
     TransparencySliderStroke.Color = t.Stroke
     SliderTrack.BackgroundColor3 = t.Surface2
     SliderFill.BackgroundColor3 = t.Accent
     SliderKnob.BackgroundColor3 = t.Accent
-
     for _, panel in ipairs({
         TeleportPanel,
         SpeedSettingsPanel,
@@ -1697,7 +1407,6 @@ local function applyTheme()
     }) do
         panel.BackgroundColor3 = t.Background
     end
-
     for _, header in ipairs({
         TeleportHeaderFrame,
         SpeedSettingsHeaderFrame,
@@ -1707,7 +1416,6 @@ local function applyTheme()
     }) do
         header.BackgroundColor3 = t.Header
     end
-
     CheckpointButton.BackgroundColor3=t.Surface
     CheckpointIcon.BackgroundColor3=t.Surface2
     CheckpointIconText.TextColor3=t.Accent
@@ -1722,33 +1430,26 @@ local function applyTheme()
     CheckpointSpeedInput.TextColor3=t.Text
     CheckpointSpeedHint.TextColor3=t.SubText
     for _,b in ipairs({CheckpointAddButton,CheckpointStartButton,CheckpointDeleteButton,CheckpointClearButton}) do b.BackgroundColor3=t.Surface; b.TextColor3=t.Text end
-
     ThemeButton.Text =
         isDarkTheme and "☾" or "☀"
-
     FlyStatus.Text = "ЗАГРУЗИТЬ"
     FlyStatus.TextColor3 = t.SubText
-
     setFeatureState(
         WallHackButton,
         isWallHackEnabled
     )
-
     setFeatureState(
         SpeedHackButton,
         isSpeedHackEnabled
     )
-
     setFeatureState(
         NoclipButton,
         isNoclipEnabled
     )
-
     setFeatureState(
         InfiniteJumpButton,
         isInfiniteJumpEnabled
     )
-
     for _, gui in pairs(nicknameGuis) do
         if gui and gui.Parent then
             local holder = gui:FindFirstChild("Holder")
@@ -1757,21 +1458,16 @@ local function applyTheme()
                 local displayName = holder:FindFirstChild("DisplayName")
                 local healthBackground = holder:FindFirstChild("HealthBackground")
                 local healthFill = healthBackground and healthBackground:FindFirstChild("HealthFill")
-
                 holder.BackgroundColor3 = t.Background
-
                 if username then
                     username.TextColor3 = t.Text
                 end
-
                 if displayName then
                     displayName.TextColor3 = t.SubText
                 end
-
                 if healthBackground then
                     healthBackground.BackgroundColor3 = t.Surface2
                 end
-
                 if healthFill then
                     healthFill.BackgroundColor3 = t.Green
                 end
@@ -1779,16 +1475,9 @@ local function applyTheme()
         end
     end
 end
-
---========================================================--
--- THEME BUTTON
---========================================================--
-
 ThemeButton.MouseButton1Click:Connect(function()
     isDarkTheme = not isDarkTheme
-
     applyTheme()
-
     showNotification(
         isDarkTheme
             and "Тёмная тема включена"
@@ -1796,38 +1485,26 @@ ThemeButton.MouseButton1Click:Connect(function()
         C().Accent
     )
 end)
-
---========================================================--
--- FLY
---========================================================--
-
 ActivateButton.MouseButton1Click:Connect(function()
     FlyStatus.Text = "ЗАГРУЗКА..."
     FlyStatus.TextColor3 = C().Accent
-
     showNotification(
         "Загрузка Fly...",
         C().Accent
     )
-
     local success, result = pcall(function()
         local source = game:HttpGet(
             "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
         )
-
         local flyScript = loadstring(source)
-
         if not flyScript then
             error("loadstring вернул nil")
         end
-
         return flyScript()
     end)
-
     if success then
         FlyStatus.Text = "ЗАГРУЗИТЬ"
         FlyStatus.TextColor3 = C().SubText
-
         showNotification(
             "Fly успешно загружен",
             C().Green
@@ -1835,65 +1512,44 @@ ActivateButton.MouseButton1Click:Connect(function()
     else
         FlyStatus.Text = "ЗАГРУЗИТЬ"
         FlyStatus.TextColor3 = C().SubText
-
         showNotification(
             "Ошибка загрузки Fly",
             C().Red
         )
-
         warn(
             "[MEDA HUB] Fly error:",
             result
         )
     end
 end)
-
---========================================================--
--- MENU SETTINGS
---========================================================--
-
 MenuSettingsButton.MouseButton1Click:Connect(function()
     savePosition()
-
     MenuFrame.Visible = false
-
     MenuSettingsPanel.Position =
         MenuFrame.Position
-
     openPanel(MenuSettingsPanel)
-
     showNotification(
         "Настройки меню открыты",
         C().Accent
     )
 end)
-
 MenuSettingsCloseButton.MouseButton1Click:Connect(function()
     local pos =
         MenuSettingsPanel.Position
-
     closePanel(MenuSettingsPanel)
-
     task.delay(0.23, function()
         MenuFrame.Position = pos
         MenuFrame.Visible = true
         savePosition()
     end)
-
     showNotification(
         "Настройки меню закрыты",
         C().Accent
     )
 end)
-
---========================================================--
--- OUT OF BOUNDS
---========================================================--
-
 OutOfBoundsButton.MouseButton1Click:Connect(function()
     allowOutOfBounds =
         not allowOutOfBounds
-
     OutOfBoundsButton.Text =
         "Перемещение за границы экрана       "
         ..
@@ -1902,40 +1558,28 @@ OutOfBoundsButton.MouseButton1Click:Connect(function()
                 and "ВКЛ"
                 or "ВЫКЛ"
         )
-
     OutOfBoundsButton.TextColor3 =
         allowOutOfBounds
             and C().Green
             or C().Text
-
     showNotification(
         allowOutOfBounds
             and "Перемещение за границы включено"
             or "Перемещение за границы выключено",
-
         allowOutOfBounds
             and C().Green
             or C().Red
     )
 end)
-
---========================================================--
--- MINIMIZE
---========================================================--
-
 local minimizedMouseStart = nil
-
 MinimizeButton.MouseButton1Click:Connect(function()
     HeaderFrame.Visible = false
     Content.Visible = false
-
     MinimizedContentLabel.Visible = true
-
     tween(MenuFrame, NORMAL_TWEEN, {
         Size = UDim2.fromOffset(64, 64)
     }):Play()
 end)
-
 MinimizedContentLabel.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
@@ -1944,7 +1588,6 @@ MinimizedContentLabel.InputBegan:Connect(function(input)
         beginDrag(MenuFrame, input)
     end
 end)
-
 MinimizedContentLabel.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch
@@ -1955,12 +1598,10 @@ MinimizedContentLabel.InputEnded:Connect(function(input)
                     input.Position -
                     minimizedMouseStart
                 ).Magnitude
-
             if distance < 8 then
                 MinimizedContentLabel.Visible = false
                 HeaderFrame.Visible = true
                 Content.Visible = true
-
                 tween(MenuFrame, NORMAL_TWEEN, {
                     Size = UDim2.fromOffset(
                         MENU_WIDTH,
@@ -1969,25 +1610,16 @@ MinimizedContentLabel.InputEnded:Connect(function(input)
                 }):Play()
             end
         end
-
         minimizedMouseStart = nil
     end
 end)
-
---========================================================--
--- SPEEDHACK
---========================================================--
-
 local isAutoSpeedMaintainEnabled = false
 local speedMaintainConnection = nil
-
 local function setSpeed(speed, notify)
     local character = LocalPlayer.Character
-
     local humanoid =
         character
         and character:FindFirstChildOfClass("Humanoid")
-
     if not humanoid then
         if notify then
             showNotification(
@@ -1997,9 +1629,7 @@ local function setSpeed(speed, notify)
         end
         return
     end
-
     humanoid.WalkSpeed = speed
-
     if notify then
         showNotification(
             "Скорость установлена: " .. tostring(speed),
@@ -2007,39 +1637,31 @@ local function setSpeed(speed, notify)
         )
     end
 end
-
 local function maintainSpeed()
     if not isSpeedHackEnabled
         or not isAutoSpeedMaintainEnabled
     then
         return
     end
-
     local character = LocalPlayer.Character
-
     local humanoid =
         character
         and character:FindFirstChildOfClass("Humanoid")
-
     if humanoid then
         local speed =
             tonumber(SpeedSettingsInput.Text)
             or DEFAULT_SPEED
-
         humanoid.WalkSpeed = speed
     end
 end
-
 local function stopSpeedMaintain()
     if speedMaintainConnection then
         speedMaintainConnection:Disconnect()
         speedMaintainConnection = nil
     end
 end
-
 local function startSpeedMaintain()
     stopSpeedMaintain()
-
     if isSpeedHackEnabled
         and isAutoSpeedMaintainEnabled
     then
@@ -2049,28 +1671,22 @@ local function startSpeedMaintain()
             )
     end
 end
-
 local function toggleSpeedHack()
     isSpeedHackEnabled =
         not isSpeedHackEnabled
-
     if isSpeedHackEnabled then
         local speed =
             tonumber(SpeedSettingsInput.Text)
             or DEFAULT_SPEED
-
         speed = math.clamp(
             speed,
             MIN_SPEED,
             MAX_SPEED
         )
-
         SpeedSettingsInput.Text =
             tostring(speed)
-
         setSpeed(speed, true)
         startSpeedMaintain()
-
         setFeatureState(
             SpeedHackButton,
             true
@@ -2080,80 +1696,59 @@ local function toggleSpeedHack()
             DEFAULT_SPEED,
             true
         )
-
         stopSpeedMaintain()
-
         setFeatureState(
             SpeedHackButton,
             false
         )
     end
 end
-
 SpeedHackButton.MouseButton1Click:Connect(
     toggleSpeedHack
 )
-
---========================================================--
--- SPEED SETTINGS
---========================================================--
-
 SpeedSettingsButton.MouseButton1Click:Connect(function()
     openPanel(SpeedSettingsPanel)
-
     showNotification(
         "Настройки скорости открыты",
         C().Accent
     )
 end)
-
 SpeedSettingsCloseButton.MouseButton1Click:Connect(function()
     closePanel(SpeedSettingsPanel)
-
     showNotification(
         "Настройки скорости закрыты",
         C().Accent
     )
 end)
-
 SpeedSettingsInput.FocusLost:Connect(function(enterPressed)
     if not enterPressed then
         return
     end
-
     local speed =
         tonumber(SpeedSettingsInput.Text)
-
     if not speed then
         SpeedSettingsInput.Text =
             tostring(DEFAULT_SPEED)
-
         showNotification(
             "Введите правильное число",
             C().Red
         )
-
         return
     end
-
     speed = math.clamp(
         speed,
         MIN_SPEED,
         MAX_SPEED
     )
-
     SpeedSettingsInput.Text =
         tostring(speed)
-
     if isSpeedHackEnabled then
         setSpeed(speed, true)
     end
 end)
-
 AutoSpeedMaintainButton.MouseButton1Click:Connect(function()
     isAutoSpeedMaintainEnabled =
         not isAutoSpeedMaintainEnabled
-
     AutoSpeedMaintainButton.Text =
         "Автоматически сохранять скорость       "
         ..
@@ -2162,78 +1757,56 @@ AutoSpeedMaintainButton.MouseButton1Click:Connect(function()
                 and "ВКЛ"
                 or "ВЫКЛ"
         )
-
     AutoSpeedMaintainButton.TextColor3 =
         isAutoSpeedMaintainEnabled
             and C().Green
             or C().Text
-
     if isAutoSpeedMaintainEnabled then
         startSpeedMaintain()
     else
         stopSpeedMaintain()
     end
-
     showNotification(
         isAutoSpeedMaintainEnabled
             and "Автосохранение скорости включено"
             or "Автосохранение скорости выключено",
-
         isAutoSpeedMaintainEnabled
             and C().Green
             or C().Red
     )
 end)
-
---========================================================--
--- WALLHACK SETTINGS
---========================================================--
-
 WallHackSettingsButton.MouseButton1Click:Connect(function()
     openPanel(WallHackSettingsPanel)
-
     showNotification(
         "Настройки WallHack открыты",
         C().Accent
     )
 end)
-
 WallHackSettingsCloseButton.MouseButton1Click:Connect(function()
     closePanel(WallHackSettingsPanel)
-
     showNotification(
         "Настройки WallHack закрыты",
         C().Accent
     )
 end)
-
---========================================================--
--- INFINITE JUMP
---========================================================--
-
 local infiniteJumpConnection = nil
-
 local function toggleInfiniteJump()
     isInfiniteJumpEnabled =
         not isInfiniteJumpEnabled
-
     if isInfiniteJumpEnabled then
         if infiniteJumpConnection then
             infiniteJumpConnection:Disconnect()
         end
-
         infiniteJumpConnection =
             UserInputService.JumpRequest:Connect(
                 function()
                     local character =
                         LocalPlayer.Character
-
                     local humanoid =
                         character
                         and character:FindFirstChildOfClass(
                             "Humanoid"
                         )
-
                     if humanoid then
                         humanoid:ChangeState(
                             Enum.HumanoidStateType.Jumping
@@ -2241,12 +1814,10 @@ local function toggleInfiniteJump()
                     end
                 end
             )
-
         setFeatureState(
             InfiniteJumpButton,
             true
         )
-
         showNotification(
             "Бесконечный прыжок включён",
             C().Green
@@ -2256,53 +1827,39 @@ local function toggleInfiniteJump()
             infiniteJumpConnection:Disconnect()
             infiniteJumpConnection = nil
         end
-
         setFeatureState(
             InfiniteJumpButton,
             false
         )
-
         showNotification(
             "Бесконечный прыжок выключен",
             C().Red
         )
     end
 end
-
 InfiniteJumpButton.MouseButton1Click:Connect(
     toggleInfiniteJump
 )
-
---========================================================--
--- NOCLIP
---========================================================--
-
 local noclipConnection = nil
-
 local function setNoclip(enabled)
     if noclipConnection then
         noclipConnection:Disconnect()
         noclipConnection = nil
     end
-
     local character =
         LocalPlayer.Character
-
     if not character then
         return
     end
-
     if enabled then
         noclipConnection =
             RunService.Stepped:Connect(
                 function()
                     local currentCharacter =
                         LocalPlayer.Character
-
                     if not currentCharacter then
                         return
                     end
-
                     for _, part in ipairs(
                         currentCharacter:GetDescendants()
                     ) do
@@ -2324,49 +1881,35 @@ local function setNoclip(enabled)
         end
     end
 end
-
 local function toggleNoclip()
     isNoclipEnabled =
         not isNoclipEnabled
-
     setNoclip(isNoclipEnabled)
-
     setFeatureState(
         NoclipButton,
         isNoclipEnabled
     )
-
     showNotification(
         isNoclipEnabled
             and "Noclip включён"
             or "Noclip выключен",
-
         isNoclipEnabled
             and C().Green
             or C().Red
     )
 end
-
 NoclipButton.MouseButton1Click:Connect(
     toggleNoclip
 )
-
---========================================================--
--- NICKNAME / HEALTH SYSTEM
---========================================================--
-
 local function disconnectHealthConnection(player)
     local connection = healthConnections[player]
-
     if connection then
         connection:Disconnect()
         healthConnections[player] = nil
     end
 end
-
 local function getHealthColor(percent)
     percent = math.clamp(percent, 0, 1)
-
     if percent <= 0.25 then
         return C().Red
     elseif percent <= 0.55 then
@@ -2375,65 +1918,49 @@ local function getHealthColor(percent)
         return C().Green
     end
 end
-
 local function updateNicknameHealth(player)
     if not showHealth then
         return
     end
-
     local gui = nicknameGuis[player]
-
     if not gui or not gui.Parent then
         return
     end
-
     local holder = gui:FindFirstChild("Holder")
-
     if not holder then
         return
     end
-
     local healthBackground =
         holder:FindFirstChild("HealthBackground")
-
     local healthFill =
         healthBackground
         and healthBackground:FindFirstChild("HealthFill")
-
     local healthText =
         holder:FindFirstChild("HealthText")
-
     local character = player.Character
-
     local humanoid =
         character
         and character:FindFirstChildOfClass("Humanoid")
-
     if not humanoid
         or humanoid.MaxHealth <= 0
     then
         if healthBackground then
             healthBackground.Visible = false
         end
-
         if healthText then
             healthText.Visible = false
         end
-
         return
     end
-
     local percent =
         math.clamp(
             humanoid.Health / humanoid.MaxHealth,
             0,
             1
         )
-
     if healthBackground then
         healthBackground.Visible = true
     end
-
     if healthText then
         healthText.Visible = true
         healthText.Text =
@@ -2442,11 +1969,9 @@ local function updateNicknameHealth(player)
         healthText.TextColor3 =
             getHealthColor(percent)
     end
-
     if healthFill then
         healthFill.BackgroundColor3 =
             getHealthColor(percent)
-
         healthFill.Size =
             UDim2.new(
                 percent,
@@ -2456,91 +1981,66 @@ local function updateNicknameHealth(player)
             )
     end
 end
-
 local function connectNicknameHealth(player)
     disconnectHealthConnection(player)
-
     if not showHealth then
         return
     end
-
     local character = player.Character
-
     if not character then
         return
     end
-
     local humanoid =
         character:FindFirstChildOfClass("Humanoid")
-
     if not humanoid then
         return
     end
-
     healthConnections[player] =
         humanoid.HealthChanged:Connect(
             function()
                 updateNicknameHealth(player)
             end
         )
-
     updateNicknameHealth(player)
 end
-
 local function removeNickname(player)
     disconnectHealthConnection(player)
-
     local gui = nicknameGuis[player]
-
     if gui then
         gui:Destroy()
         nicknameGuis[player] = nil
     end
-
     local character = player.Character
-
     if character then
         local old =
             character:FindFirstChild("MedaNickname")
-
         if old then
             old:Destroy()
         end
     end
 end
-
 local function createNickname(player)
     if player == LocalPlayer then
         return
     end
-
     removeNickname(player)
-
     local character = player.Character
-
     if not character then
         return
     end
-
     local head =
         character:FindFirstChild("Head")
-
     if not head then
         return
     end
-
     local gui = Instance.new("BillboardGui")
     gui.Name = "MedaNickname"
     gui.Adornee = head
     gui.Parent = character
     gui.AlwaysOnTop = true
     gui.MaxDistance = nicknameDistance
-
-    -- Немного увеличили ширину, чтобы HP выглядело компактно
-    -- и не раздувало сам блок.
     gui.Size = UDim2.fromOffset(220, 50)
     gui.StudsOffset = Vector3.new(0, 2.8, 0)
-
     local holder = Instance.new("Frame")
     holder.Name = "Holder"
     holder.Parent = gui
@@ -2548,10 +2048,12 @@ local function createNickname(player)
     holder.BackgroundColor3 = C().Background
     holder.BackgroundTransparency = 0.12
     holder.BorderSizePixel = 0
-
-    addCorner(holder, 9)
+    addCorner(holder, 14)
     addStroke(holder, C().Accent, 1, 0.15)
-
+    local holderGradient = Instance.new("UIGradient")
+    holderGradient.Rotation = 90
+    holderGradient.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 190, 215))
+    holderGradient.Parent = holder
     local glow = Instance.new("Frame")
     glow.Parent = holder
     glow.Size = UDim2.new(1, 6, 1, 6)
@@ -2561,7 +2063,6 @@ local function createNickname(player)
     glow.BorderSizePixel = 0
     glow.ZIndex = 0
     addCorner(glow, 11)
-
     local username = createLabel(
         holder,
         "@" .. player.Name,
@@ -2574,7 +2075,6 @@ local function createNickname(player)
     username.TextColor3 = C().Text
     username.TextTruncate = Enum.TextTruncate.AtEnd
     username.ZIndex = 2
-
     local displayName = createLabel(
         holder,
         player.DisplayName,
@@ -2587,11 +2087,6 @@ local function createNickname(player)
     displayName.TextColor3 = C().SubText
     displayName.TextTruncate = Enum.TextTruncate.AtEnd
     displayName.ZIndex = 2
-
-    --====================================================--
-    -- COMPACT HEALTH BAR
-    --====================================================--
-
     local healthBackground = Instance.new("Frame")
     healthBackground.Name = "HealthBackground"
     healthBackground.Parent = holder
@@ -2602,7 +2097,6 @@ local function createNickname(player)
     healthBackground.Visible = showHealth
     healthBackground.ZIndex = 3
     addCorner(healthBackground, 3)
-
     local healthFill = Instance.new("Frame")
     healthFill.Name = "HealthFill"
     healthFill.Parent = healthBackground
@@ -2611,7 +2105,6 @@ local function createNickname(player)
     healthFill.BorderSizePixel = 0
     healthFill.ZIndex = 4
     addCorner(healthFill, 3)
-
     local healthText = createLabel(
         holder,
         "100 HP",
@@ -2625,14 +2118,11 @@ local function createNickname(player)
     healthText.TextColor3 = C().Green
     healthText.Visible = showHealth
     healthText.ZIndex = 4
-
     nicknameGuis[player] = gui
-
     if showHealth then
         connectNicknameHealth(player)
     end
 end
-
 local function refreshNicknames()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -2644,10 +2134,8 @@ local function refreshNicknames()
         end
     end
 end
-
 NicknamesButton.MouseButton1Click:Connect(function()
     showNicknames = not showNicknames
-
     if showNicknames then
         NicknamesButton.Text =
             "Показывать никнеймы       ВКЛ"
@@ -2657,9 +2145,7 @@ NicknamesButton.MouseButton1Click:Connect(function()
             "Показывать никнеймы       ВЫКЛ"
         NicknamesButton.TextColor3 = C().Text
     end
-
     refreshNicknames()
-
     showNotification(
         showNicknames
             and "Никнеймы включены"
@@ -2669,45 +2155,32 @@ NicknamesButton.MouseButton1Click:Connect(function()
             or C().Red
     )
 end)
-
---========================================================--
--- HEALTH TOGGLE
---========================================================--
-
 HealthButton.MouseButton1Click:Connect(function()
     showHealth = not showHealth
-
     if showHealth then
         HealthButton.Text =
             "Показывать здоровье       ВКЛ"
         HealthButton.TextColor3 = C().Green
-
         for player, gui in pairs(nicknameGuis) do
             if gui and gui.Parent then
                 local holder = gui:FindFirstChild("Holder")
-
                 if holder then
                     local healthBackground =
                         holder:FindFirstChild("HealthBackground")
-
                     local healthText =
                         holder:FindFirstChild("HealthText")
-
                     if healthBackground then
                         healthBackground.Visible = true
                     end
-
                     if healthText then
                         healthText.Visible = true
                     end
                 end
             end
-
             if showNicknames and isWallHackEnabled then
                 connectNicknameHealth(player)
             end
         end
-
         showNotification(
             "Показ здоровья включён",
             C().Green
@@ -2716,101 +2189,73 @@ HealthButton.MouseButton1Click:Connect(function()
         HealthButton.Text =
             "Показывать здоровье       ВЫКЛ"
         HealthButton.TextColor3 = C().Text
-
         for player, gui in pairs(nicknameGuis) do
             disconnectHealthConnection(player)
-
             if gui and gui.Parent then
                 local holder = gui:FindFirstChild("Holder")
-
                 if holder then
                     local healthBackground =
                         holder:FindFirstChild("HealthBackground")
-
                     local healthText =
                         holder:FindFirstChild("HealthText")
-
                     if healthBackground then
                         healthBackground.Visible = false
                     end
-
                     if healthText then
                         healthText.Visible = false
                     end
                 end
             end
         end
-
         showNotification(
             "Показ здоровья выключен",
             C().Red
         )
     end
 end)
-
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         task.wait(0.5)
-
         if showNicknames and isWallHackEnabled then
             createNickname(player)
         end
     end)
 end)
-
 Players.PlayerRemoving:Connect(function(player)
     removeNickname(player)
 end)
-
---========================================================--
--- WALLHACK
---========================================================--
-
 local highlights = {}
-
 local function removeHighlight(player)
     local highlight =
         highlights[player]
-
     if highlight then
         highlight:Destroy()
         highlights[player] = nil
     end
 end
-
 local function applyHighlight(player)
     if player == LocalPlayer then
         return
     end
-
     removeHighlight(player)
-
     local character =
         player.Character
-
     if not character then
         return
     end
-
     local highlight =
         Instance.new("Highlight")
-
     highlight.Name = "MedaHighlight"
     highlight.Adornee = character
     highlight.Parent = character
-
     highlight.FillColor = C().Accent
     highlight.OutlineColor = C().Accent2
-
     highlight.FillTransparency = 0.82
     highlight.OutlineTransparency = 0
-
     highlight.DepthMode =
         Enum.HighlightDepthMode.AlwaysOnTop
-
     highlights[player] = highlight
 end
-
 local function refreshHighlights()
     for _, player in ipairs(
         Players:GetPlayers()
@@ -2824,24 +2269,19 @@ local function refreshHighlights()
         end
     end
 end
-
 local function toggleWallHack()
     isWallHackEnabled =
         not isWallHackEnabled
-
     if isWallHackEnabled then
         refreshHighlights()
-
         setFeatureState(
             WallHackButton,
             true
         )
-
         showNotification(
             "WallHack включён",
             C().Green
         )
-
         if showNicknames then
             refreshNicknames()
         end
@@ -2849,83 +2289,59 @@ local function toggleWallHack()
         for player in pairs(highlights) do
             removeHighlight(player)
         end
-
         setFeatureState(
             WallHackButton,
             false
         )
-
-        -- Никнеймы и HP завязаны на состояние WallHack.
         refreshNicknames()
-
         showNotification(
             "WallHack выключен",
             C().Red
         )
     end
 end
-
 WallHackButton.MouseButton1Click:Connect(
     toggleWallHack
 )
-
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         task.wait(0.5)
-
         if isWallHackEnabled then
             applyHighlight(player)
         end
-
         if isWallHackEnabled and showNicknames then
             createNickname(player)
         end
     end)
 end)
-
 Players.PlayerRemoving:Connect(function(player)
     removeHighlight(player)
 end)
-
 for _, player in ipairs(
     Players:GetPlayers()
 ) do
     if player ~= LocalPlayer then
         player.CharacterAdded:Connect(function()
             task.wait(0.5)
-
             if isWallHackEnabled then
                 applyHighlight(player)
             end
-
             if isWallHackEnabled and showNicknames then
                 createNickname(player)
             end
         end)
     end
 end
-
--- Keep nicknames synchronized with WallHack state.
 task.spawn(function()
     while true do
         task.wait(0.25)
-
         if showNicknames and isWallHackEnabled then
             refreshNicknames()
         end
     end
 end)
-
---========================================================--
--- TELEPORT
---========================================================--
-
---========================================================--
--- SPECTATE / НАБЛЮДЕНИЕ ЗА ИГРОКОМ
---========================================================--
 local spectatingPlayer = nil
 local savedCameraSubject = nil
-
 local function stopSpectating()
     local camera = workspace.CurrentCamera
     if camera then
@@ -2937,21 +2353,18 @@ local function stopSpectating()
     savedCameraSubject = nil
     showNotification("Наблюдение выключено", C().SubText)
 end
-
 local function toggleSpectate(player)
     if not player or player == LocalPlayer then return end
     if spectatingPlayer == player then
         stopSpectating()
         return
     end
-
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     if not humanoid then
         showNotification("У игрока нет активного персонажа", C().Red)
         return
     end
-
     local camera = workspace.CurrentCamera
     if not camera then return end
     if not spectatingPlayer then
@@ -2961,7 +2374,6 @@ local function toggleSpectate(player)
     camera.CameraSubject = humanoid
     showNotification("Наблюдение: " .. player.Name .. " (нажми ещё раз, чтобы отключить)", C().Green)
 end
-
 LocalPlayer.CharacterAdded:Connect(function(character)
     if not spectatingPlayer then
         local humanoid = character:WaitForChild("Humanoid", 5)
@@ -2970,57 +2382,42 @@ LocalPlayer.CharacterAdded:Connect(function(character)
         end
     end
 end)
-
 Players.PlayerRemoving:Connect(function(player)
     if spectatingPlayer == player then
         stopSpectating()
     end
 end)
-
 local playerButtons = {}
-
 local function createPlayerButton(player)
     local button =
         Instance.new("TextButton")
-
     button.Size =
         UDim2.new(1, -4, 0, 46)
-
     button.BackgroundColor3 =
         C().Surface
-
     button.BorderSizePixel = 0
     button.Text = ""
     button.AutoButtonColor = false
     button.ZIndex = 70
-
     addCorner(button, 10)
-
     addStroke(
         button,
         C().Stroke,
         1,
         0.2
     )
-
     local avatar =
         Instance.new("Frame")
-
     avatar.Parent = button
     avatar.Size =
         UDim2.fromOffset(30, 30)
-
     avatar.Position =
         UDim2.fromOffset(8, 8)
-
     avatar.BackgroundColor3 =
         C().Accent
-
     avatar.BorderSizePixel = 0
     avatar.ZIndex = 71
-
     addCorner(avatar, 9)
-
     local avatarText =
         createLabel(
             avatar,
@@ -3034,18 +2431,13 @@ local function createPlayerButton(player)
             Enum.Font.GothamBold,
             13
         )
-
     avatarText.TextXAlignment =
         Enum.TextXAlignment.Center
-
     avatarText.TextColor3 =
         Color3.new(1, 1, 1)
-
     avatarText.ZIndex = 72
-
     local avatarImage =
         Instance.new("ImageLabel")
-
     avatarImage.Parent = avatar
     avatarImage.Size =
         UDim2.fromScale(1, 1)
@@ -3056,9 +2448,7 @@ local function createPlayerButton(player)
     avatarImage.Image = ""
     avatarImage.ScaleType = Enum.ScaleType.Crop
     avatarImage.ZIndex = 73
-
     addCorner(avatarImage, 9)
-
     task.spawn(function()
         local ok, content =
             pcall(function()
@@ -3068,16 +2458,13 @@ local function createPlayerButton(player)
                         Enum.ThumbnailType.HeadShot,
                         Enum.ThumbnailSize.Size100x100
                     )
-
                 return image
             end)
-
         if ok and content and avatarImage.Parent then
             avatarImage.Image = content
             avatarText.Visible = false
         end
     end)
-
     local nameLabel =
         createLabel(
             button,
@@ -3087,9 +2474,7 @@ local function createPlayerButton(player)
             Enum.Font.GothamMedium,
             12
         )
-
     nameLabel.ZIndex = 71
-
     local spectateButton = Instance.new("TextButton")
     spectateButton.Parent = button
     spectateButton.Size = UDim2.fromOffset(76, 30)
@@ -3110,7 +2495,6 @@ local function createPlayerButton(player)
             spectateButton.TextColor3 = spectatingPlayer == player and C().Green or C().Text
         end
     end)
-
     local arrow =
         createLabel(
             button,
@@ -3120,18 +2504,13 @@ local function createPlayerButton(player)
             Enum.Font.GothamBold,
             17
         )
-
     arrow.TextXAlignment =
         Enum.TextXAlignment.Center
-
     arrow.TextColor3 =
         C().Accent
-
     arrow.ZIndex = 71
-
     return button
 end
-
 local function updatePlayerList()
     for _, button in ipairs(
         playerButtons
@@ -3140,40 +2519,31 @@ local function updatePlayerList()
             button:Destroy()
         end
     end
-
     table.clear(playerButtons)
-
     for _, player in ipairs(
         Players:GetPlayers()
     ) do
         if player ~= LocalPlayer then
             local button =
                 createPlayerButton(player)
-
             button.Parent = PlayerList
-
             setupButtonFeedback(button)
-
             button.MouseButton1Click:Connect(
                 function()
                     local myCharacter =
                         LocalPlayer.Character
-
                     local targetCharacter =
                         player.Character
-
                     local myRoot =
                         myCharacter
                         and myCharacter:FindFirstChild(
                             "HumanoidRootPart"
                         )
-
                     local targetRoot =
                         targetCharacter
                         and targetCharacter:FindFirstChild(
                             "HumanoidRootPart"
                         )
-
                     if myRoot and targetRoot then
                         myRoot.CFrame =
                             targetRoot.CFrame
@@ -3182,7 +2552,6 @@ local function updatePlayerList()
                                 3,
                                 0
                             )
-
                         showNotification(
                             "Телепорт к "
                                 .. player.Name,
@@ -3196,7 +2565,6 @@ local function updatePlayerList()
                     end
                 end
             )
-
             table.insert(
                 playerButtons,
                 button
@@ -3204,26 +2572,21 @@ local function updatePlayerList()
         end
     end
 end
-
 TeleportButton.MouseButton1Click:Connect(
     function()
         updatePlayerList()
-
         openPanel(TeleportPanel)
-
         showNotification(
             "Список игроков открыт",
             C().Accent
         )
     end
 )
-
 TeleportCloseButton.MouseButton1Click:Connect(
     function()
         closePanel(TeleportPanel)
     end
 )
-
 Players.PlayerAdded:Connect(
     function()
         if TeleportPanel.Visible then
@@ -3231,7 +2594,6 @@ Players.PlayerAdded:Connect(
         end
     end
 )
-
 Players.PlayerRemoving:Connect(
     function()
         if TeleportPanel.Visible then
@@ -3239,149 +2601,93 @@ Players.PlayerRemoving:Connect(
         end
     end
 )
-
---========================================================--
--- CHARACTER RESPAWN
---========================================================--
-
 LocalPlayer.CharacterAdded:Connect(
     function()
         task.wait(0.5)
-
         if checkpointRouteRunning then stopCheckpointRoute(true) end
-
         if isSpeedHackEnabled then
             local speed =
                 tonumber(
                     SpeedSettingsInput.Text
                 )
                 or DEFAULT_SPEED
-
             setSpeed(
                 speed,
                 false
             )
-
             startSpeedMaintain()
         end
-
         if isNoclipEnabled then
             setNoclip(true)
         end
     end
 )
-
---========================================================--
--- CHECKPOINT CLEANUP
---========================================================--
-
 ScreenGui.Destroying:Connect(function() checkpointRouteRunning=false; if checkpointFolder and checkpointFolder.Parent then checkpointFolder:Destroy() end end)
-
---========================================================--
--- INITIAL STATE
---========================================================--
-
 setFeatureState(
     WallHackButton,
     false
 )
-
 setFeatureState(
     SpeedHackButton,
     false
 )
-
 setFeatureState(
     NoclipButton,
     false
 )
-
 setFeatureState(
     InfiniteJumpButton,
     false
 )
-
 FlyStatus.Text = "ЗАГРУЗИТЬ"
 FlyStatus.TextColor3 = C().SubText
-
 NicknamesButton.Text =
     "Показывать никнеймы       ВЫКЛ"
 NicknamesButton.TextColor3 = C().Text
-
 HealthButton.Text =
     "Показывать здоровье       ВЫКЛ"
 HealthButton.TextColor3 = C().Text
-
 OutOfBoundsButton.Text =
     "Перемещение за границы экрана       ВЫКЛ"
-
 AutoSpeedMaintainButton.Text =
     "Автоматически сохранять скорость       ВЫКЛ"
-
 updateCheckpointUI()
-
 TransparencyValue.Text =
     tostring(
         math.floor(
             dragTransparency * 100 + 0.5
         )
     ) .. "%"
-    
-    
-
 applyTheme()
-
 print("[MEDA HUB] v3 loaded successfully")
-
-
---========================================================--
---                 SERVER HOP EXTENSION                   --
---              OPTIMIZED / LOW-LAG VERSION              --
---========================================================--
-
 local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
-
     local ServerHopHttpService = game:GetService("HttpService")
     local ServerHopTeleportService = game:GetService("TeleportService")
-
     local SERVER_HOP_FILE = "MedaHub_Favorites.json"
     local SERVER_HOP_API =
         "https://games.roblox.com/v1/games/"
         .. tostring(game.PlaceId)
         .. "/servers/Public"
-
-    -- Получаем максимум 100 серверов, но одновременно рисуем
-    -- только SERVER_HOP_ROWS_PER_PAGE GUI-строк.
     local SERVER_HOP_PAGE_LIMIT = 100
     local SERVER_HOP_MAX_PAGES = 2
     local SERVER_HOP_ROWS_PER_PAGE = 20
-
     local serverHopSortMode = "DESC"
     local serverHopTab = "SERVERS"
     local serverHopPage = 1
-
     local serverHopServers = {}
     local serverHopFavoriteServers = {}
     local serverHopRows = {}
     local serverHopLoading = false
-
-    --====================================================--
-    -- FAVORITES STORAGE
-    --====================================================--
-
     local function serverHopFileAvailable()
         return type(isfile) == "function"
             and type(readfile) == "function"
             and type(writefile) == "function"
     end
-
     local function saveServerHopFavorites()
         if not serverHopFileAvailable() then
             return false
         end
-
         local data = {}
-
         for serverId, serverData in pairs(serverHopFavoriteServers) do
             table.insert(data, {
                 id = serverId,
@@ -3391,7 +2697,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 savedAt = serverData.savedAt or os.time()
             })
         end
-
         return pcall(function()
             writefile(
                 SERVER_HOP_FILE,
@@ -3399,38 +2704,29 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             )
         end)
     end
-
     local function loadServerHopFavorites()
         table.clear(serverHopFavoriteServers)
-
         if not serverHopFileAvailable() then
             return
         end
-
         local fileExists = false
-
         local existsSuccess, existsResult = pcall(function()
             return isfile(SERVER_HOP_FILE)
         end)
-
         if existsSuccess and existsResult then
             fileExists = true
         end
-
         if not fileExists then
             return
         end
-
         local success, result = pcall(function()
             return ServerHopHttpService:JSONDecode(
                 readfile(SERVER_HOP_FILE)
             )
         end)
-
         if not success or type(result) ~= "table" then
             return
         end
-
         for _, serverData in ipairs(result) do
             if type(serverData) == "table"
                 and type(serverData.id) == "string"
@@ -3448,19 +2744,12 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             end
         end
     end
-
     loadServerHopFavorites()
-
-    --====================================================--
-    -- PANEL
-    --====================================================--
-
     local ServerHopPanel,
         ServerHopHeaderFrame,
         ServerHopCloseButton,
         ServerHopList =
         createPanel("ServerHopPanel", "⇄  SERVER HOP")
-
     local ServerHopInfo = createLabel(
         ServerHopList,
         "Загрузка списка серверов...",
@@ -3469,14 +2758,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         Enum.Font.Gotham,
         10
     )
-
     ServerHopInfo.TextColor3 = C().SubText
     ServerHopInfo.ZIndex = 70
-
-    --====================================================--
-    -- CURRENT SERVER (PINNED)
-    --====================================================--
-
     local ServerHopCurrentCard = Instance.new("Frame")
     ServerHopCurrentCard.Parent = ServerHopList
     ServerHopCurrentCard.Size = UDim2.new(1, -4, 0, 86)
@@ -3485,24 +2768,19 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopCurrentCard.ZIndex = 70
     addCorner(ServerHopCurrentCard, 10)
     addStroke(ServerHopCurrentCard, C().Accent, 1, 0.15)
-
     local ServerHopCurrentTitle = createLabel(ServerHopCurrentCard, "ТЕКУЩИЙ СЕРВЕР", UDim2.new(1, -165, 0, 21), UDim2.fromOffset(10, 5), Enum.Font.GothamBold, 11)
     ServerHopCurrentTitle.TextColor3 = C().Text
     ServerHopCurrentTitle.ZIndex = 73
-
     local ServerHopCurrentPlayers = createLabel(ServerHopCurrentCard, "●  ИГРОКОВ  N/A", UDim2.new(0.62, 0, 0, 20), UDim2.fromOffset(10, 29), Enum.Font.GothamBold, 10)
     ServerHopCurrentPlayers.TextColor3 = C().Accent
     ServerHopCurrentPlayers.ZIndex = 73
-
     local ServerHopCurrentPing = createLabel(ServerHopCurrentCard, "PING  N/A", UDim2.fromOffset(105, 18), UDim2.new(1, -220, 0, 28), Enum.Font.GothamBold, 9)
     ServerHopCurrentPing.TextColor3 = C().SubText
     ServerHopCurrentPing.TextXAlignment = Enum.TextXAlignment.Right
     ServerHopCurrentPing.ZIndex = 73
-
     local ServerHopCurrentId = createLabel(ServerHopCurrentCard, "#CURRENT", UDim2.fromOffset(110, 15), UDim2.fromOffset(10, 58), Enum.Font.Gotham, 8)
     ServerHopCurrentId.TextColor3 = C().SubText
     ServerHopCurrentId.ZIndex = 73
-
     local ServerHopCurrentFavorite = Instance.new("TextButton")
     ServerHopCurrentFavorite.Parent = ServerHopCurrentCard
     ServerHopCurrentFavorite.Size = UDim2.fromOffset(27, 27)
@@ -3516,7 +2794,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopCurrentFavorite.AutoButtonColor = false
     ServerHopCurrentFavorite.ZIndex = 75
     addCorner(ServerHopCurrentFavorite, 7)
-
     local ServerHopCurrentPlayersButton = Instance.new("TextButton")
     ServerHopCurrentPlayersButton.Parent = ServerHopCurrentCard
     ServerHopCurrentPlayersButton.Size = UDim2.fromOffset(27, 27)
@@ -3530,7 +2807,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopCurrentPlayersButton.AutoButtonColor = false
     ServerHopCurrentPlayersButton.ZIndex = 75
     addCorner(ServerHopCurrentPlayersButton, 7)
-
     local ServerHopCurrentJoin = Instance.new("TextButton")
     ServerHopCurrentJoin.Parent = ServerHopCurrentCard
     ServerHopCurrentJoin.Size = UDim2.fromOffset(55, 27)
@@ -3545,18 +2821,12 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopCurrentJoin.Active = false
     ServerHopCurrentJoin.ZIndex = 75
     addCorner(ServerHopCurrentJoin, 7)
-
-    --====================================================--
-    -- TABS
-    --====================================================--
-
     local ServerHopTabs = Instance.new("Frame")
     ServerHopTabs.Parent = ServerHopList
     ServerHopTabs.Size = UDim2.new(1, -4, 0, 38)
     ServerHopTabs.BackgroundTransparency = 1
     ServerHopTabs.BorderSizePixel = 0
     ServerHopTabs.ZIndex = 70
-
     local ServerHopServersTab = Instance.new("TextButton")
     ServerHopServersTab.Parent = ServerHopTabs
     ServerHopServersTab.Size = UDim2.new(0.5, -3, 1, 0)
@@ -3569,9 +2839,7 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopServersTab.TextSize = 10
     ServerHopServersTab.AutoButtonColor = false
     ServerHopServersTab.ZIndex = 71
-
     addCorner(ServerHopServersTab, 9)
-
     local ServerHopFavoritesTab = Instance.new("TextButton")
     ServerHopFavoritesTab.Parent = ServerHopTabs
     ServerHopFavoritesTab.Size = UDim2.new(0.5, -3, 1, 0)
@@ -3584,21 +2852,14 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopFavoritesTab.TextSize = 10
     ServerHopFavoritesTab.AutoButtonColor = false
     ServerHopFavoritesTab.ZIndex = 71
-
     addCorner(ServerHopFavoritesTab, 9)
     addStroke(ServerHopFavoritesTab, C().Stroke, 1, 0.15)
-
-    --====================================================--
-    -- SORT / REFRESH
-    --====================================================--
-
     local ServerHopSortFrame = Instance.new("Frame")
     ServerHopSortFrame.Parent = ServerHopList
     ServerHopSortFrame.Size = UDim2.new(1, -4, 0, 38)
     ServerHopSortFrame.BackgroundTransparency = 1
     ServerHopSortFrame.BorderSizePixel = 0
     ServerHopSortFrame.ZIndex = 70
-
     local ServerHopSortPlayersMore = Instance.new("TextButton")
     ServerHopSortPlayersMore.Parent = ServerHopSortFrame
     ServerHopSortPlayersMore.Size = UDim2.new(0.5, -3, 1, 0)
@@ -3611,10 +2872,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopSortPlayersMore.TextSize = 9
     ServerHopSortPlayersMore.AutoButtonColor = false
     ServerHopSortPlayersMore.ZIndex = 71
-
     addCorner(ServerHopSortPlayersMore, 9)
     addStroke(ServerHopSortPlayersMore, C().Stroke, 1, 0.15)
-
     local ServerHopSortPlayersLess = Instance.new("TextButton")
     ServerHopSortPlayersLess.Parent = ServerHopSortFrame
     ServerHopSortPlayersLess.Size = UDim2.new(0.5, -3, 1, 0)
@@ -3627,10 +2886,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopSortPlayersLess.TextSize = 9
     ServerHopSortPlayersLess.AutoButtonColor = false
     ServerHopSortPlayersLess.ZIndex = 71
-
     addCorner(ServerHopSortPlayersLess, 9)
     addStroke(ServerHopSortPlayersLess, C().Stroke, 1, 0.15)
-
     local ServerHopRefreshButton = Instance.new("TextButton")
     ServerHopRefreshButton.Parent = ServerHopList
     ServerHopRefreshButton.Size = UDim2.new(1, -4, 0, 38)
@@ -3642,20 +2899,13 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopRefreshButton.TextSize = 11
     ServerHopRefreshButton.AutoButtonColor = false
     ServerHopRefreshButton.ZIndex = 70
-
     addCorner(ServerHopRefreshButton, 9)
-
-    --====================================================--
-    -- PAGINATION
-    --====================================================--
-
     local ServerHopPagination = Instance.new("Frame")
     ServerHopPagination.Parent = ServerHopList
     ServerHopPagination.Size = UDim2.new(1, -4, 0, 34)
     ServerHopPagination.BackgroundTransparency = 1
     ServerHopPagination.BorderSizePixel = 0
     ServerHopPagination.ZIndex = 70
-
     local ServerHopPrevButton = Instance.new("TextButton")
     ServerHopPrevButton.Parent = ServerHopPagination
     ServerHopPrevButton.Size = UDim2.fromOffset(70, 30)
@@ -3668,10 +2918,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopPrevButton.TextSize = 9
     ServerHopPrevButton.AutoButtonColor = false
     ServerHopPrevButton.ZIndex = 71
-
     addCorner(ServerHopPrevButton, 8)
     addStroke(ServerHopPrevButton, C().Stroke, 1, 0.15)
-
     local ServerHopPageLabel = createLabel(
         ServerHopPagination,
         "1 / 1",
@@ -3680,11 +2928,9 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         Enum.Font.GothamBold,
         9
     )
-
     ServerHopPageLabel.TextColor3 = C().SubText
     ServerHopPageLabel.TextXAlignment = Enum.TextXAlignment.Center
     ServerHopPageLabel.ZIndex = 71
-
     local ServerHopNextButton = Instance.new("TextButton")
     ServerHopNextButton.Parent = ServerHopPagination
     ServerHopNextButton.Size = UDim2.fromOffset(70, 30)
@@ -3697,14 +2943,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopNextButton.TextSize = 9
     ServerHopNextButton.AutoButtonColor = false
     ServerHopNextButton.ZIndex = 71
-
     addCorner(ServerHopNextButton, 8)
     addStroke(ServerHopNextButton, C().Stroke, 1, 0.15)
-
-    --====================================================--
-    -- DYNAMIC CONTAINER
-    --====================================================--
-
     local ServerHopDynamicContainer = Instance.new("Frame")
     ServerHopDynamicContainer.Parent = ServerHopList
     ServerHopDynamicContainer.Size = UDim2.new(1, -4, 0, 0)
@@ -3712,62 +2952,44 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopDynamicContainer.BorderSizePixel = 0
     ServerHopDynamicContainer.AutomaticSize = Enum.AutomaticSize.Y
     ServerHopDynamicContainer.ZIndex = 70
-
     local ServerHopDynamicLayout = Instance.new("UIListLayout")
     ServerHopDynamicLayout.Parent = ServerHopDynamicContainer
     ServerHopDynamicLayout.Padding = UDim.new(0, 5)
     ServerHopDynamicLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    --====================================================--
-    -- HELPERS
-    --====================================================--
-
     local function serverHopShortId(id)
         if not id then
             return "Unknown"
         end
-
         return string.sub(id, 1, 8)
     end
-
     local function serverHopDisplayName(server)
         if server.name and server.name ~= "" then
             return server.name
         end
-
         return "Server " .. serverHopShortId(server.id)
     end
-
     local function serverHopIsFavorite(serverId)
         return serverHopFavoriteServers[serverId] ~= nil
     end
-
     local function serverHopPingColor(ping)
         ping = tonumber(ping)
-
         if not ping then
             return C().SubText
         end
-
         if ping <= 80 then
             return C().Green
         elseif ping <= 150 then
             return C().Orange
         end
-
         return C().Red
     end
-
     local function serverHopPingText(server)
         local ping = tonumber(server.ping)
-
         if ping then
             return "PING  " .. tostring(math.floor(ping + 0.5)) .. " ms"
         end
-
         return "PING  N/A"
     end
-
     local function serverHopGetCurrentPing()
         local success, value = pcall(function()
             local stats = game:GetService("Stats")
@@ -3779,7 +3001,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         end)
         return success and value or nil
     end
-
     local function serverHopBuildCurrentServer()
         return {
             id = game.JobId,
@@ -3790,7 +3011,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             isCurrent = true
         }
     end
-
     local function serverHopUpdateCurrentCard()
         local current = serverHopBuildCurrentServer()
         local count = tonumber(current.playing) or 0
@@ -3803,16 +3023,13 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         ServerHopCurrentFavorite.Text = favorite and "★" or "☆"
         ServerHopCurrentFavorite.TextColor3 = favorite and C().Orange or C().SubText
     end
-
     local function serverHopSetFavorite(server)
         if not server or not server.id then
             return
         end
-
         if serverHopFavoriteServers[server.id] then
             serverHopFavoriteServers[server.id] = nil
             saveServerHopFavorites()
-
             showNotification(
                 "Сервер удалён из избранного",
                 C().Red
@@ -3822,46 +3039,36 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 name = serverHopDisplayName(server),
                 savedAt = os.time()
             }
-
             saveServerHopFavorites()
-
             showNotification(
                 "Сервер добавлен в избранное",
                 C().Green
             )
         end
     end
-
     local serverHopOpenPlayers
-
     ServerHopCurrentFavorite.MouseButton1Click:Connect(function()
         serverHopSetFavorite(serverHopBuildCurrentServer())
         serverHopUpdateCurrentCard()
     end)
-
     ServerHopCurrentPlayersButton.MouseButton1Click:Connect(function()
         serverHopOpenPlayers(serverHopBuildCurrentServer())
     end)
-
     setupButtonFeedback(ServerHopCurrentFavorite)
     setupButtonFeedback(ServerHopCurrentPlayersButton)
-
     local function serverHopTeleport(serverId)
         if not serverId or serverId == "" then
             showNotification("Некорректный ID сервера", C().Red)
             return
         end
-
         if serverId == game.JobId then
             showNotification("Это текущий сервер", C().Orange)
             return
         end
-
         showNotification(
             "Подключение к серверу...",
             C().Accent
         )
-
         local success, errorMessage = pcall(function()
             ServerHopTeleportService:TeleportToPlaceInstance(
                 game.PlaceId,
@@ -3869,47 +3076,38 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 LocalPlayer
             )
         end)
-
         if not success then
             showNotification(
                 "Не удалось подключиться",
                 C().Red
             )
-
             warn(
                 "[MEDA HUB] Server Hop error:",
                 errorMessage
             )
         end
     end
-
     local function serverHopClearRows()
         for _, row in ipairs(serverHopRows) do
             if row and row.Parent then
                 row:Destroy()
             end
         end
-
         table.clear(serverHopRows)
     end
-
     local function serverHopGetFavoriteList()
         local list = {}
-
         for serverId, savedData in pairs(serverHopFavoriteServers) do
             local currentData = nil
-
             if serverId == game.JobId then
                 currentData = serverHopBuildCurrentServer()
             end
-
             for _, server in ipairs(serverHopServers) do
                 if server.id == serverId then
                     currentData = server
                     break
                 end
             end
-
             if currentData then
                 table.insert(list, currentData)
             else
@@ -3924,24 +3122,16 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 })
             end
         end
-
         table.sort(list, function(a, b)
             return tostring(a.name) < tostring(b.name)
         end)
-
         return list
     end
-
-    --====================================================--
-    -- SERVER ROW
-    --====================================================--
-
     local ServerHopPlayersPanel,
         ServerHopPlayersHeaderFrame,
         ServerHopPlayersCloseButton,
         ServerHopPlayersList =
         createPanel("ServerHopPlayersPanel", "ИГРОКИ СЕРВЕРА")
-
     local ServerHopPlayersInfo = createLabel(
         ServerHopPlayersList, "Выберите сервер",
         UDim2.new(1, -4, 0, 24), UDim2.fromOffset(0, 0),
@@ -3949,7 +3139,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     )
     ServerHopPlayersInfo.TextColor3 = C().SubText
     ServerHopPlayersInfo.ZIndex = 90
-
     local ServerHopPlayersDynamic = Instance.new("Frame")
     ServerHopPlayersDynamic.Parent = ServerHopPlayersList
     ServerHopPlayersDynamic.Size = UDim2.new(1, -4, 0, 0)
@@ -3957,18 +3146,15 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopPlayersDynamic.BorderSizePixel = 0
     ServerHopPlayersDynamic.AutomaticSize = Enum.AutomaticSize.Y
     ServerHopPlayersDynamic.ZIndex = 90
-
     local ServerHopPlayersLayout = Instance.new("UIListLayout")
     ServerHopPlayersLayout.Parent = ServerHopPlayersDynamic
     ServerHopPlayersLayout.Padding = UDim.new(0, 4)
     ServerHopPlayersLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
     local function serverHopClearPlayerRows()
         for _, child in ipairs(ServerHopPlayersDynamic:GetChildren()) do
             if child:IsA("GuiObject") then child:Destroy() end
         end
     end
-
     local function serverHopAddPlayerRow(playerData)
         local row = Instance.new("Frame")
         row.Parent = ServerHopPlayersDynamic
@@ -3978,7 +3164,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         row.ZIndex = 91
         addCorner(row, 8)
         addStroke(row, C().Stroke, 1, 0.15)
-
         local avatar = Instance.new("ImageLabel")
         avatar.Parent = row
         avatar.Size = UDim2.fromOffset(36, 36)
@@ -3988,7 +3173,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         avatar.Image = playerData.avatar or ""
         avatar.ZIndex = 92
         addCorner(avatar, 18)
-
         local display = playerData.displayName or playerData.name or "Unknown"
         local username = playerData.name and ("@" .. playerData.name) or ""
         local label = createLabel(
@@ -3999,7 +3183,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         label.TextColor3 = C().Text
         label.TextTruncate = Enum.TextTruncate.AtEnd
         label.ZIndex = 92
-
         if playerData.player and playerData.player ~= LocalPlayer then
             label.Size = UDim2.new(1, -132, 1, 0)
             local watch = Instance.new("TextButton")
@@ -4023,11 +3206,9 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             end)
         end
     end
-
     serverHopOpenPlayers = function(server)
         serverHopClearPlayerRows()
         openPanel(ServerHopPlayersPanel)
-
         if server.id == game.JobId or server.isCurrent then
             local currentPlayers = Players:GetPlayers()
             ServerHopPlayersInfo.Text = "Игроков: " .. tostring(#currentPlayers)
@@ -4045,7 +3226,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             end
             return
         end
-
         ServerHopPlayersInfo.Text = "Игроки удалённого сервера недоступны через стандартный API Roblox"
         local note = createLabel(
             ServerHopPlayersDynamic,
@@ -4059,7 +3239,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         note.TextYAlignment = Enum.TextYAlignment.Center
         note.ZIndex = 91
     end
-
     ServerHopPlayersCloseButton.MouseButton1Click:Connect(function()
         closePanel(ServerHopPlayersPanel)
     end)
@@ -4067,7 +3246,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         beginDrag(ServerHopPlayersPanel, input)
     end)
     ServerHopPlayersPanel.Visible = false
-
     local function createServerHopRow(server)
         local row = Instance.new("Frame")
         row.Parent = ServerHopDynamicContainer
@@ -4075,10 +3253,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         row.BackgroundColor3 = C().Surface
         row.BorderSizePixel = 0
         row.ZIndex = 71
-
         addCorner(row, 10)
         addStroke(row, C().Stroke, 1, 0.15)
-
         local nameLabel = createLabel(
             row,
             serverHopDisplayName(server),
@@ -4087,14 +3263,10 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             Enum.Font.GothamBold,
             11
         )
-
         nameLabel.TextColor3 = C().Text
         nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
         nameLabel.ZIndex = 73
-
-        -- Более заметное количество игроков.
         local playerCount = tonumber(server.playing)
-
         local playersLabel = createLabel(
             row,
             playerCount
@@ -4111,10 +3283,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             Enum.Font.GothamBold,
             10
         )
-
         playersLabel.TextColor3 = C().Accent
         playersLabel.ZIndex = 73
-
         local pingLabel = createLabel(
             row,
             serverHopPingText(server),
@@ -4123,11 +3293,9 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             Enum.Font.GothamBold,
             9
         )
-
         pingLabel.TextColor3 = serverHopPingColor(server.ping)
         pingLabel.TextXAlignment = Enum.TextXAlignment.Right
         pingLabel.ZIndex = 73
-
         local idLabel = createLabel(
             row,
             "#" .. serverHopShortId(server.id),
@@ -4136,10 +3304,8 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             Enum.Font.Gotham,
             8
         )
-
         idLabel.TextColor3 = C().SubText
         idLabel.ZIndex = 73
-
         local favoriteButton = Instance.new("TextButton")
         favoriteButton.Parent = row
         favoriteButton.Size = UDim2.fromOffset(27, 27)
@@ -4158,41 +3324,31 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         favoriteButton.TextSize = 16
         favoriteButton.AutoButtonColor = false
         favoriteButton.ZIndex = 75
-
         addCorner(favoriteButton, 7)
-
         favoriteButton.MouseButton1Click:Connect(function()
             serverHopSetFavorite(server)
-
             favoriteButton.Text =
                 serverHopIsFavorite(server.id)
                 and "★"
                 or "☆"
-
             favoriteButton.TextColor3 =
                 serverHopIsFavorite(server.id)
                 and C().Orange
                 or C().SubText
-
             if serverHopTab == "FAVORITES" then
                 task.defer(function()
                     if ServerHopPanel.Visible then
-                        -- Только при открытой вкладке избранного.
                         serverHopClearRows()
-                        -- render defined below; schedule through flag.
                         serverHopPage = 1
                         local list = serverHopGetFavoriteList()
-
                         local startIndex =
                             ((serverHopPage - 1) * SERVER_HOP_ROWS_PER_PAGE)
                             + 1
-
                         local endIndex =
                             math.min(
                                 startIndex + SERVER_HOP_ROWS_PER_PAGE - 1,
                                 #list
                             )
-
                         for index = startIndex, endIndex do
                             createServerHopRow(list[index])
                         end
@@ -4200,7 +3356,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 end)
             end
         end)
-
         local joinButton = Instance.new("TextButton")
         joinButton.Parent = row
         joinButton.Size = UDim2.fromOffset(55, 27)
@@ -4213,82 +3368,56 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         joinButton.TextSize = 8
         joinButton.AutoButtonColor = false
         joinButton.ZIndex = 75
-
         addCorner(joinButton, 7)
-
         joinButton.MouseButton1Click:Connect(function()
             serverHopTeleport(server.id)
         end)
-
         setupButtonFeedback(favoriteButton)
         setupButtonFeedback(joinButton)
-
         table.insert(serverHopRows, row)
-
         return row
     end
-
-    --====================================================--
-    -- SORT
-    --====================================================--
-
     local function serverHopSortServers()
         table.sort(serverHopServers, function(a, b)
             local aPlayers = tonumber(a.playing) or 0
             local bPlayers = tonumber(b.playing) or 0
-
             if aPlayers == bPlayers then
                 return tostring(a.id) < tostring(b.id)
             end
-
             if serverHopSortMode == "DESC" then
                 return aPlayers > bPlayers
             end
-
             return aPlayers < bPlayers
         end)
     end
-
-    --====================================================--
-    -- RENDER ONLY CURRENT PAGE
-    --====================================================--
-
     local function serverHopGetCurrentList()
         if serverHopTab == "FAVORITES" then
             return serverHopGetFavoriteList()
         end
-
         return serverHopServers
     end
-
     local function serverHopRender()
         serverHopClearRows()
-
         local list = serverHopGetCurrentList()
         local totalPages =
             math.max(
                 1,
                 math.ceil(#list / SERVER_HOP_ROWS_PER_PAGE)
             )
-
         if serverHopPage > totalPages then
             serverHopPage = totalPages
         end
-
         if serverHopPage < 1 then
             serverHopPage = 1
         end
-
         local startIndex =
             ((serverHopPage - 1) * SERVER_HOP_ROWS_PER_PAGE)
             + 1
-
         local endIndex =
             math.min(
                 startIndex + SERVER_HOP_ROWS_PER_PAGE - 1,
                 #list
             )
-
         if #list == 0 then
             local emptyLabel = createLabel(
                 ServerHopDynamicContainer,
@@ -4300,33 +3429,27 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 Enum.Font.GothamBold,
                 10
             )
-
             emptyLabel.TextColor3 = C().SubText
             emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
             emptyLabel.ZIndex = 72
-
             table.insert(serverHopRows, emptyLabel)
         else
             for index = startIndex, endIndex do
                 createServerHopRow(list[index])
             end
         end
-
         ServerHopPageLabel.Text =
             tostring(serverHopPage)
             .. " / "
             .. tostring(totalPages)
-
         ServerHopPrevButton.BackgroundColor3 =
             serverHopPage > 1
             and C().Surface
             or C().Surface2
-
         ServerHopNextButton.BackgroundColor3 =
             serverHopPage < totalPages
             and C().Surface
             or C().Surface2
-
         if serverHopTab == "FAVORITES" then
             ServerHopInfo.Text =
                 "Избранных серверов: "
@@ -4341,18 +3464,12 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                 .. tostring(totalPages)
         end
     end
-
-    --====================================================--
-    -- HTTP
-    --====================================================--
-
     local function serverHopHttpGet(url)
         local requestFunction =
             (syn and syn.request)
             or (http and http.request)
             or (http_request)
             or (request)
-
         if type(requestFunction) == "function" then
             local success, response = pcall(function()
                 return requestFunction({
@@ -4360,69 +3477,50 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                     Method = "GET"
                 })
             end)
-
             if success and type(response) == "table" then
                 local body =
                     response.Body
                     or response.body
-
                 if type(body) == "string" and body ~= "" then
                     return body
                 end
             end
         end
-
         if type(game.HttpGet) == "function" then
             return game:HttpGet(url)
         end
-
         error("HTTP request function is unavailable")
     end
-
-    --====================================================--
-    -- FETCH
-    --====================================================--
-
     local function serverHopFetchServers()
         if serverHopLoading then
             return
         end
-
         serverHopLoading = true
-
         ServerHopRefreshButton.Text = "↻  ЗАГРУЗКА..."
         ServerHopRefreshButton.Active = false
         ServerHopInfo.Text = "Получение списка серверов..."
-
         local fetchedServers = {}
         local cursor = nil
-
         local success, errorMessage = pcall(function()
-
             for page = 1, SERVER_HOP_MAX_PAGES do
-
                 local url =
                     SERVER_HOP_API
                     .. "?sortOrder=Desc"
                     .. "&excludeFullGames=false"
                     .. "&limit="
                     .. tostring(SERVER_HOP_PAGE_LIMIT)
-
                 if cursor and cursor ~= "" then
                     url =
                         url
                         .. "&cursor="
                         .. ServerHopHttpService:UrlEncode(cursor)
                 end
-
                 local response = serverHopHttpGet(url)
                 local decoded =
                     ServerHopHttpService:JSONDecode(response)
-
                 if type(decoded) ~= "table" then
                     break
                 end
-
                 if type(decoded.data) == "table" then
                     for _, server in ipairs(decoded.data) do
                         if type(server) == "table"
@@ -4441,160 +3539,113 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
                                     tonumber(server.playing) or 0,
                                 maxPlayers =
                                     tonumber(server.maxPlayers) or 0,
-                                -- Roblox public server endpoint can
-                                -- provide the server's reported ping.
                                 ping =
                                     tonumber(server.ping)
                             }
                         end
                     end
                 end
-
                 cursor = decoded.nextPageCursor
-
                 if not cursor or cursor == "" then
                     break
                 end
-
-                -- Маленькая пауза между страницами, чтобы не
-                -- забивать главный поток.
                 task.wait(0.1)
             end
         end)
-
         if not success then
             serverHopLoading = false
             ServerHopRefreshButton.Text = "↻  ОБНОВИТЬ"
             ServerHopRefreshButton.Active = true
             ServerHopInfo.Text = "Ошибка получения серверов"
-
             showNotification(
                 "Не удалось получить серверы",
                 C().Red
             )
-
             warn(
                 "[MEDA HUB] Server list error:",
                 errorMessage
             )
-
             return
         end
-
         table.clear(serverHopServers)
-
-        -- Текущий сервер отображается отдельной закреплённой карточкой сверху.
         for _, server in pairs(fetchedServers) do
             table.insert(serverHopServers, server)
         end
-
         serverHopSortServers()
-
         serverHopPage = 1
         serverHopRender()
-
         serverHopLoading = false
-
         ServerHopRefreshButton.Text = "↻  ОБНОВИТЬ"
         ServerHopRefreshButton.Active = true
-
         showNotification(
             "Список серверов обновлён",
             C().Green
         )
     end
-
-    --====================================================--
-    -- TAB UPDATE
-    --====================================================--
-
     local function serverHopUpdateTabs()
         if serverHopTab == "SERVERS" then
             ServerHopServersTab.BackgroundColor3 = C().Accent
             ServerHopServersTab.TextColor3 = Color3.new(1, 1, 1)
-
             ServerHopFavoritesTab.BackgroundColor3 = C().Surface
             ServerHopFavoritesTab.TextColor3 = C().Text
-
             ServerHopSortFrame.Visible = true
         else
             ServerHopServersTab.BackgroundColor3 = C().Surface
             ServerHopServersTab.TextColor3 = C().Text
-
             ServerHopFavoritesTab.BackgroundColor3 = C().Accent
             ServerHopFavoritesTab.TextColor3 = Color3.new(1, 1, 1)
-
             ServerHopSortFrame.Visible = false
         end
     end
-
-    --====================================================--
-    -- CONTROLS
-    --====================================================--
-
     ServerHopServersTab.MouseButton1Click:Connect(function()
         serverHopTab = "SERVERS"
         serverHopPage = 1
-
         serverHopUpdateTabs()
         serverHopRender()
     end)
-
     ServerHopFavoritesTab.MouseButton1Click:Connect(function()
         serverHopTab = "FAVORITES"
         serverHopPage = 1
-
         serverHopUpdateTabs()
         serverHopRender()
     end)
-
     ServerHopSortPlayersMore.MouseButton1Click:Connect(function()
         serverHopSortMode = "DESC"
         serverHopPage = 1
-
         serverHopSortServers()
         serverHopRender()
     end)
-
     ServerHopSortPlayersLess.MouseButton1Click:Connect(function()
         serverHopSortMode = "ASC"
         serverHopPage = 1
-
         serverHopSortServers()
         serverHopRender()
     end)
-
     ServerHopPrevButton.MouseButton1Click:Connect(function()
         if serverHopPage > 1 then
             serverHopPage = serverHopPage - 1
             serverHopRender()
         end
     end)
-
     ServerHopNextButton.MouseButton1Click:Connect(function()
         local list = serverHopGetCurrentList()
-
         local totalPages =
             math.max(
                 1,
                 math.ceil(#list / SERVER_HOP_ROWS_PER_PAGE)
             )
-
         if serverHopPage < totalPages then
             serverHopPage = serverHopPage + 1
             serverHopRender()
         end
     end)
-
     ServerHopRefreshButton.MouseButton1Click:Connect(function()
         task.spawn(serverHopFetchServers)
     end)
-
     ServerHopCloseButton.MouseButton1Click:Connect(function()
         closePanel(ServerHopPanel)
         MenuFrame.Visible = true
     end)
-
     Players.PlayerAdded:Connect(function()
         serverHopUpdateCurrentCard()
         if ServerHopPlayersPanel.Visible then
@@ -4602,7 +3653,6 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             serverHopOpenPlayers(current)
         end
     end)
-
     Players.PlayerRemoving:Connect(function()
         task.defer(serverHopUpdateCurrentCard)
         if ServerHopPlayersPanel.Visible then
@@ -4612,15 +3662,9 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             end)
         end
     end)
-
     ServerHopHeaderFrame.InputBegan:Connect(function(input)
         beginDrag(ServerHopPanel, input)
     end)
-
-    --====================================================--
-    -- MAIN MENU BUTTON
-    --====================================================--
-
     local ServerHopButton = Instance.new("TextButton")
     ServerHopButton.Parent = Content
     ServerHopButton.Size = UDim2.fromOffset(198, 58)
@@ -4630,15 +3674,13 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopButton.Text = ""
     ServerHopButton.AutoButtonColor = false
     ServerHopButton.ZIndex = 12
-
-    addCorner(ServerHopButton, 11)
+    addCorner(ServerHopButton, 16)
     addStroke(
         ServerHopButton,
         C().Stroke,
         1,
         0.2
     )
-
     local ServerHopIcon = Instance.new("Frame")
     ServerHopIcon.Parent = ServerHopButton
     ServerHopIcon.Size = UDim2.fromOffset(36, 36)
@@ -4646,9 +3688,7 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
     ServerHopIcon.BackgroundColor3 = C().Surface2
     ServerHopIcon.BorderSizePixel = 0
     ServerHopIcon.ZIndex = 13
-
     addCorner(ServerHopIcon, 9)
-
     local ServerHopIconText = createLabel(
         ServerHopIcon,
         "⇄",
@@ -4657,12 +3697,10 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         Enum.Font.GothamBold,
         17
     )
-
     ServerHopIconText.TextXAlignment =
         Enum.TextXAlignment.Center
     ServerHopIconText.TextColor3 = C().Accent
     ServerHopIconText.ZIndex = 14
-
     local ServerHopTitle = createLabel(
         ServerHopButton,
         "Server Hop",
@@ -4671,9 +3709,7 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         Enum.Font.GothamBold,
         12
     )
-
     ServerHopTitle.ZIndex = 14
-
     local ServerHopStatus = createLabel(
         ServerHopButton,
         "Список серверов",
@@ -4682,31 +3718,19 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
         Enum.Font.Gotham,
         10
     )
-
     ServerHopStatus.TextColor3 = C().SubText
     ServerHopStatus.ZIndex = 14
-
     setupButtonFeedback(ServerHopButton)
-
     ServerHopButton.MouseButton1Click:Connect(function()
         MenuFrame.Visible = false
         openPanel(ServerHopPanel)
         serverHopUpdateCurrentCard()
-
-        -- Открытие панели больше не рендерит сотни объектов.
-        -- Рисуем только текущую страницу и параллельно обновляем данные.
         serverHopTab = "SERVERS"
         serverHopPage = 1
         serverHopUpdateTabs()
         serverHopRender()
-
         task.spawn(serverHopFetchServers)
     end)
-
-    --====================================================--
-    -- THEME SUPPORT
-    --====================================================--
-
     ThemeButton.MouseButton1Click:Connect(function()
         task.defer(function()
             if not ServerHopPanel
@@ -4714,75 +3738,54 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             then
                 return
             end
-
             ServerHopPanel.BackgroundColor3 =
                 C().Background
-
             ServerHopHeaderFrame.BackgroundColor3 =
                 C().Header
-
             ServerHopInfo.TextColor3 =
                 C().SubText
-
             ServerHopServersTab.BackgroundColor3 =
                 serverHopTab == "SERVERS"
                 and C().Accent
                 or C().Surface
-
             ServerHopServersTab.TextColor3 =
                 serverHopTab == "SERVERS"
                 and Color3.new(1, 1, 1)
                 or C().Text
-
             ServerHopFavoritesTab.BackgroundColor3 =
                 serverHopTab == "FAVORITES"
                 and C().Accent
                 or C().Surface
-
             ServerHopFavoritesTab.TextColor3 =
                 serverHopTab == "FAVORITES"
                 and Color3.new(1, 1, 1)
                 or C().Text
-
             ServerHopSortPlayersMore.BackgroundColor3 =
                 C().Surface
-
             ServerHopSortPlayersMore.TextColor3 =
                 C().Text
-
             ServerHopSortPlayersLess.BackgroundColor3 =
                 C().Surface
-
             ServerHopSortPlayersLess.TextColor3 =
                 C().Text
-
             ServerHopRefreshButton.BackgroundColor3 =
                 C().Accent
-
             ServerHopPrevButton.BackgroundColor3 =
                 C().Surface
-
             ServerHopNextButton.BackgroundColor3 =
                 C().Surface
-
             ServerHopIcon.BackgroundColor3 =
                 C().Surface2
-
             ServerHopIconText.TextColor3 =
                 C().Accent
-
             ServerHopTitle.TextColor3 =
                 C().Text
-
             ServerHopStatus.TextColor3 =
                 C().SubText
-
             ServerHopPlayersPanel.BackgroundColor3 =
                 C().Background
-
             ServerHopPlayersHeaderFrame.BackgroundColor3 =
                 C().Header
-
             ServerHopPlayersInfo.TextColor3 =
                 C().SubText
             ServerHopCurrentCard.BackgroundColor3 = C().Surface
@@ -4795,128 +3798,93 @@ local serverHopExtensionOk, serverHopExtensionError = xpcall(function()
             ServerHopCurrentPlayersButton.TextColor3 = C().Text
             ServerHopCurrentJoin.BackgroundColor3 = C().Surface2
             ServerHopCurrentJoin.TextColor3 = C().SubText
-
-            -- Перерисовываем максимум 20 строк.
             serverHopRender()
         end)
     end)
-
     setupButtonFeedback(
         ServerHopServersTab
     )
-
     setupButtonFeedback(
         ServerHopFavoritesTab
     )
-
     setupButtonFeedback(
         ServerHopSortPlayersMore
     )
-
     setupButtonFeedback(
         ServerHopSortPlayersLess
     )
-
     setupButtonFeedback(
         ServerHopRefreshButton
     )
-
     setupButtonFeedback(
         ServerHopPrevButton
     )
-
     setupButtonFeedback(
         ServerHopNextButton
     )
-
     serverHopUpdateTabs()
-
     serverHopUpdateCurrentCard()
     ServerHopPanel.Visible = false
     ServerHopStatus.Text = "Список серверов"
-
     print(
         "[MEDA HUB] Optimized Server Hop extension loaded"
     )
-
 end, debug.traceback)
-
 if not serverHopExtensionOk then
     warn(
         "[MEDA HUB] Server Hop failed to initialize:",
         serverHopExtensionError
     )
 end
-
-
---========================================================--
---                MEDA HUB v3 CONFIGS v2                 --
---   Snapshot configs: CREATE -> SAVE, LOAD -> APPLY      --
---========================================================--
-
 task.defer(function()
     local ok, err = xpcall(function()
         local HttpService = game:GetService("HttpService")
-
         local CONFIG_FILE = "MedaHub_Configs.json"
         local CONFIG_VERSION = 3
-
         local configs = {}
         local configBusy = false
-
         local function fileApiAvailable()
             return type(isfile) == "function"
                 and type(readfile) == "function"
                 and type(writefile) == "function"
         end
-
         local function notify(text, color)
             pcall(function()
                 showNotification(text, color)
             end)
         end
-
         local function jsonEncode(value)
             local success, result = pcall(function()
                 return HttpService:JSONEncode(value)
             end)
             return success and result or nil
         end
-
         local function jsonDecode(value)
             local success, result = pcall(function()
                 return HttpService:JSONDecode(value)
             end)
             return success and result or nil
         end
-
         local function readConfigFile()
             table.clear(configs)
-
             if not fileApiAvailable() then
                 return
             end
-
             local exists = false
             pcall(function()
                 exists = isfile(CONFIG_FILE)
             end)
-
             if not exists then
                 return
             end
-
             local success, raw = pcall(readfile, CONFIG_FILE)
             if not success or type(raw) ~= "string" or raw == "" then
                 return
             end
-
             local decoded = jsonDecode(raw)
             if type(decoded) ~= "table" then
                 return
             end
-
-            -- Поддержка старого формата: {configs = {...}}
             if type(decoded.configs) == "table" then
                 for _, cfg in ipairs(decoded.configs) do
                     if type(cfg) == "table" and type(cfg.name) == "string" then
@@ -4931,29 +3899,23 @@ task.defer(function()
                 end
             end
         end
-
         local function writeConfigFile()
             if not fileApiAvailable() then
                 return false
             end
-
             local encoded = jsonEncode({
                 version = CONFIG_VERSION,
                 configs = configs,
                 updatedAt = os.time()
             })
-
             if not encoded then
                 return false
             end
-
             local success = pcall(function()
                 writefile(CONFIG_FILE, encoded)
             end)
-
             return success
         end
-
         local function findConfig(name)
             for _, cfg in ipairs(configs) do
                 if cfg.name == name then
@@ -4962,7 +3924,6 @@ task.defer(function()
             end
             return nil
         end
-
         local function vecToData(v)
             return {
                 x = v.X,
@@ -4970,23 +3931,18 @@ task.defer(function()
                 z = v.Z
             }
         end
-
         local function dataToVec(v)
             if type(v) ~= "table" then
                 return nil
             end
-
             local x = tonumber(v.x)
             local y = tonumber(v.y)
             local z = tonumber(v.z)
-
             if not x or not y or not z then
                 return nil
             end
-
             return Vector3.new(x, y, z)
         end
-
         local function udim2ToData(value)
             return {
                 xs = value.X.Scale,
@@ -4995,12 +3951,10 @@ task.defer(function()
                 yo = value.Y.Offset
             }
         end
-
         local function dataToUDim2(value)
             if type(value) ~= "table" then
                 return nil
             end
-
             return UDim2.new(
                 tonumber(value.xs) or 0,
                 tonumber(value.xo) or 0,
@@ -5008,15 +3962,12 @@ task.defer(function()
                 tonumber(value.yo) or 0
             )
         end
-
         local function snapshot()
             local routeSpeed = checkpointRouteSpeed
             if routeSpeed == math.huge then
                 routeSpeed = "inf"
             end
-
             local pointData = {}
-
             for _, point in ipairs(checkpoints) do
                 if type(point) == "table"
                     and typeof(point.Position) == "Vector3"
@@ -5025,85 +3976,59 @@ task.defer(function()
                         vecToData(point.Position)
                 end
             end
-
             return {
                 version = CONFIG_VERSION,
-
-                -- Основные функции
                 speedHack = isSpeedHackEnabled == true,
                 speed = tonumber(SpeedSettingsInput.Text)
                     or DEFAULT_SPEED,
                 autoSpeed = isAutoSpeedMaintainEnabled == true,
-
                 wallHack = isWallHackEnabled == true,
                 nicknames = showNicknames == true,
                 health = showHealth == true,
                 nicknameDistance = tonumber(nicknameDistance)
                     or 500,
-
                 noclip = isNoclipEnabled == true,
                 infiniteJump = isInfiniteJumpEnabled == true,
-
-                -- Меню
                 darkTheme = isDarkTheme == true,
                 allowOutOfBounds = allowOutOfBounds == true,
                 dragTransparency = tonumber(dragTransparency)
                     or 0.45,
                 menuPosition = udim2ToData(MenuFrame.Position),
-
-                -- Чекпоинты
                 checkpointSpeed = routeSpeed,
                 checkpoints = pointData,
-
-                -- Статистика и AIM
                 statsEnabled = _G.MedaHubPersistentState.statsEnabled == true,
                 statsPosition = _G.MedaHubPersistentState.statsPosition or {x = 24, y = 120},
                 aim = _G.MedaHubPersistentState.aim or {}
             }
         end
-
-        --================================================--
-        -- UI: РАЗМЕР ПАНЕЛИ НАСТРОЕК
-        --================================================--
-
         local CONFIG_PANEL_WIDTH = PANEL_WIDTH
         local CONFIG_PANEL_HEIGHT = PANEL_HEIGHT
-
         MenuSettingsPanel:SetAttribute(
             "CustomWidth",
             CONFIG_PANEL_WIDTH
         )
-
         MenuSettingsPanel:SetAttribute(
             "CustomHeight",
             CONFIG_PANEL_HEIGHT
         )
-
         local oldOpenPanel = openPanel
         local oldClosePanel = closePanel
-
         openPanel = function(panel)
             if panel == MenuSettingsPanel then
                 panel.Visible = true
-
                 local target =
                     UDim2.fromOffset(
                         CONFIG_PANEL_WIDTH,
                         CONFIG_PANEL_HEIGHT
                     )
-
                 panel.Size = UDim2.fromOffset(0, 0)
-
                 tween(panel, NORMAL_TWEEN, {
                     Size = target
                 }):Play()
-
                 return
             end
-
             oldOpenPanel(panel)
         end
-
         closePanel = function(panel)
             if panel == MenuSettingsPanel then
                 local closeTween = tween(
@@ -5113,9 +4038,7 @@ task.defer(function()
                         Size = UDim2.fromOffset(0, 0)
                     }
                 )
-
                 closeTween:Play()
-
                 closeTween.Completed:Connect(function()
                     if panel and panel.Parent then
                         panel.Visible = false
@@ -5126,17 +4049,10 @@ task.defer(function()
                             )
                     end
                 end)
-
                 return
             end
-
             oldClosePanel(panel)
         end
-
-        --================================================--
-        -- UI: КРАСИВЫЙ БЛОК КОНФИГОВ
-        --================================================--
-
         local separator = Instance.new("Frame")
         separator.Parent = MenuSettingsList
         separator.Size = UDim2.new(1, -4, 0, 1)
@@ -5144,7 +4060,6 @@ task.defer(function()
         separator.BackgroundTransparency = 0.35
         separator.BorderSizePixel = 0
         separator.ZIndex = 70
-
         local configsHeader = Instance.new("Frame")
         configsHeader.Parent = MenuSettingsList
         configsHeader.Size = UDim2.new(1, -4, 0, 64)
@@ -5158,7 +4073,6 @@ task.defer(function()
             1,
             0.12
         )
-
         local configsTitle = createLabel(
             configsHeader,
             "СОХРАНЁННЫЕ КОНФИГИ",
@@ -5169,7 +4083,6 @@ task.defer(function()
         )
         configsTitle.TextColor3 = C().Text
         configsTitle.ZIndex = 71
-
         local configsSubtitle = createLabel(
             configsHeader,
             "Снимок текущих настроек хаба",
@@ -5180,7 +4093,6 @@ task.defer(function()
         )
         configsSubtitle.TextColor3 = C().SubText
         configsSubtitle.ZIndex = 71
-
         local configNameInput = Instance.new("TextBox")
         configNameInput.Parent = MenuSettingsList
         configNameInput.Size = UDim2.new(1, -4, 0, 38)
@@ -5202,7 +4114,6 @@ task.defer(function()
             1,
             0.12
         )
-
         local createConfigButton = Instance.new("TextButton")
         createConfigButton.Parent = MenuSettingsList
         createConfigButton.Size = UDim2.new(1, -4, 0, 38)
@@ -5215,7 +4126,6 @@ task.defer(function()
         createConfigButton.AutoButtonColor = false
         createConfigButton.ZIndex = 70
         addCorner(createConfigButton, 10)
-
         local configStatus = createLabel(
             MenuSettingsList,
             "Конфиг не выбран",
@@ -5226,19 +4136,16 @@ task.defer(function()
         )
         configStatus.TextColor3 = C().SubText
         configStatus.ZIndex = 70
-
         local configListFrame = Instance.new("Frame")
         configListFrame.Parent = MenuSettingsList
         configListFrame.Size = UDim2.new(1, -4, 0, 0)
         configListFrame.BackgroundTransparency = 1
         configListFrame.BorderSizePixel = 0
         configListFrame.ZIndex = 70
-
         local configLayout = Instance.new("UIListLayout")
         configLayout.Parent = configListFrame
         configLayout.Padding = UDim.new(0, 5)
         configLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
         configLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             configListFrame.Size = UDim2.new(
                 1,
@@ -5247,9 +4154,7 @@ task.defer(function()
                 configLayout.AbsoluteContentSize.Y
             )
         end)
-
         local activeConfigName = nil
-
         local function updateConfigStatus()
             if activeConfigName then
                 configStatus.Text =
@@ -5261,7 +4166,6 @@ task.defer(function()
                 configStatus.TextColor3 = C().SubText
             end
         end
-
         local function updateTransparencyUI()
             local percent =
                 math.clamp(
@@ -5269,21 +4173,18 @@ task.defer(function()
                     0,
                     1
                 )
-
             SliderFill.Size = UDim2.new(
                 percent,
                 0,
                 1,
                 0
             )
-
             SliderKnob.Position = UDim2.new(
                 percent,
                 0,
                 0.5,
                 0
             )
-
             TransparencyValue.Text =
                 tostring(
                     math.floor(
@@ -5291,7 +4192,6 @@ task.defer(function()
                     )
                 ) .. "%"
         end
-
         local function updateMenuSettingsUI()
             OutOfBoundsButton.Text =
                 "Перемещение за границы экрана       "
@@ -5300,12 +4200,10 @@ task.defer(function()
                         and "ВКЛ"
                         or "ВЫКЛ"
                 )
-
             OutOfBoundsButton.TextColor3 =
                 allowOutOfBounds
                     and C().Green
                     or C().Text
-
             AutoSpeedMaintainButton.Text =
                 "Автоматически сохранять скорость       "
                 .. (
@@ -5313,12 +4211,10 @@ task.defer(function()
                         and "ВКЛ"
                         or "ВЫКЛ"
                 )
-
             AutoSpeedMaintainButton.TextColor3 =
                 isAutoSpeedMaintainEnabled
                     and C().Green
                     or C().Text
-
             NicknamesButton.Text =
                 "Показывать никнеймы       "
                 .. (
@@ -5326,12 +4222,10 @@ task.defer(function()
                         and "ВКЛ"
                         or "ВЫКЛ"
                 )
-
             NicknamesButton.TextColor3 =
                 showNicknames
                     and C().Green
                     or C().Text
-
             HealthButton.Text =
                 "Показывать здоровье       "
                 .. (
@@ -5339,20 +4233,16 @@ task.defer(function()
                         and "ВКЛ"
                         or "ВЫКЛ"
                 )
-
             HealthButton.TextColor3 =
                 showHealth
                     and C().Green
                     or C().Text
-
             updateTransparencyUI()
-
             pcall(function()
                 ThemeButton.Text =
                     isDarkTheme and "☾" or "☀"
             end)
         end
-
         local function rebuildConfigList()
             for _, child in ipairs(
                 configListFrame:GetChildren()
@@ -5361,12 +4251,10 @@ task.defer(function()
                     child:Destroy()
                 end
             end
-
             table.sort(configs, function(a, b)
                 return tostring(a.name):lower()
                     < tostring(b.name):lower()
             end)
-
             for _, cfg in ipairs(configs) do
                 local row = Instance.new("Frame")
                 row.Parent = configListFrame
@@ -5381,7 +4269,6 @@ task.defer(function()
                     1,
                     0.14
                 )
-
                 local accent = Instance.new("Frame")
                 accent.Parent = row
                 accent.Size = UDim2.fromOffset(3, 34)
@@ -5393,7 +4280,6 @@ task.defer(function()
                 accent.BorderSizePixel = 0
                 accent.ZIndex = 72
                 addCorner(accent, 2)
-
                 local nameLabel = createLabel(
                     row,
                     tostring(cfg.name),
@@ -5406,7 +4292,6 @@ task.defer(function()
                 nameLabel.TextTruncate =
                     Enum.TextTruncate.AtEnd
                 nameLabel.ZIndex = 72
-
                 local dateLabel = createLabel(
                     row,
                     "Сохранён: "
@@ -5423,7 +4308,6 @@ task.defer(function()
                 )
                 dateLabel.TextColor3 = C().SubText
                 dateLabel.ZIndex = 72
-
                 local loadButton = Instance.new("TextButton")
                 loadButton.Parent = row
                 loadButton.Size = UDim2.fromOffset(52, 28)
@@ -5438,7 +4322,6 @@ task.defer(function()
                 loadButton.AutoButtonColor = false
                 loadButton.ZIndex = 73
                 addCorner(loadButton, 8)
-
                 local deleteButton = Instance.new("TextButton")
                 deleteButton.Parent = row
                 deleteButton.Size = UDim2.fromOffset(52, 28)
@@ -5453,33 +4336,24 @@ task.defer(function()
                 deleteButton.AutoButtonColor = false
                 deleteButton.ZIndex = 73
                 addCorner(deleteButton, 8)
-
                 loadButton.MouseButton1Click:Connect(function()
                     if configBusy then
                         return
                     end
-
-                    -- Используем сам объект cfg, а не ищем его по индексу.
-                    -- Это исключает ошибки после сортировки списка.
                     configBusy = true
-
                     local success, loadError =
                         pcall(function()
                             local desiredSpeed =
                                 tonumber(cfg.speed)
                                 or DEFAULT_SPEED
-
                             desiredSpeed =
                                 math.clamp(
                                     desiredSpeed,
                                     MIN_SPEED,
                                     MAX_SPEED
                                 )
-
                             SpeedSettingsInput.Text =
                                 tostring(desiredSpeed)
-
-                            -- Скорость
                             if isSpeedHackEnabled
                                 ~= (cfg.speedHack == true)
                             then
@@ -5490,33 +4364,24 @@ task.defer(function()
                                     false
                                 )
                             end
-
                             isAutoSpeedMaintainEnabled =
                                 cfg.autoSpeed == true
-
                             if isAutoSpeedMaintainEnabled then
                                 startSpeedMaintain()
                             else
                                 stopSpeedMaintain()
                             end
-
-                            -- WallHack
                             if isWallHackEnabled
                                 ~= (cfg.wallHack == true)
                             then
                                 toggleWallHack()
                             end
-
-                            -- Никнеймы / HP
                             showNicknames =
                                 cfg.nicknames == true
-
                             showHealth =
                                 cfg.health == true
-
                             updateMenuSettingsUI()
                             refreshNicknames()
-
                             for player in pairs(nicknameGuis) do
                                 if showHealth
                                     and showNicknames
@@ -5529,28 +4394,20 @@ task.defer(function()
                                     )
                                 end
                             end
-
-                            -- Noclip
                             if isNoclipEnabled
                                 ~= (cfg.noclip == true)
                             then
                                 toggleNoclip()
                             end
-
-                            -- Infinite Jump
                             if isInfiniteJumpEnabled
                                 ~= (cfg.infiniteJump == true)
                             then
                                 toggleInfiniteJump()
                             end
-
-                            -- Настройки меню
                             isDarkTheme =
                                 cfg.darkTheme ~= false
-
                             allowOutOfBounds =
                                 cfg.allowOutOfBounds == true
-
                             dragTransparency =
                                 math.clamp(
                                     tonumber(
@@ -5559,19 +4416,15 @@ task.defer(function()
                                     MIN_DRAG_TRANSPARENCY,
                                     MAX_DRAG_TRANSPARENCY
                                 )
-
                             local savedMenuPosition =
                                 dataToUDim2(
                                     cfg.menuPosition
                                 )
-
                             if savedMenuPosition then
                                 MenuFrame.Position =
                                     savedMenuPosition
                                 savePosition()
                             end
-
-                            -- Статистика и AIM: сохранить выбранные значения для модулей.
                             local sharedState = _G.MedaHubPersistentState
                             if type(sharedState) == "table" then
                                 sharedState.statsEnabled = cfg.statsEnabled == true
@@ -5587,7 +4440,6 @@ task.defer(function()
                                         sharedState.aim[key] = value
                                     end
                                 end
-                                -- Если статистика уже создана, обновить её атрибуты.
                                 local statsGui = ScreenGui:FindFirstChild("MedaStatsOverlay")
                                 if statsGui then
                                     statsGui.Visible = sharedState.statsEnabled
@@ -5601,10 +4453,7 @@ task.defer(function()
                                     end
                                 end
                             end
-
-                            -- Чекпоинты
                             checkpointRouteRunning = false
-
                             for _, point in ipairs(checkpoints) do
                                 if type(point) == "table"
                                     and point.Marker
@@ -5613,18 +4462,14 @@ task.defer(function()
                                     point.Marker:Destroy()
                                 end
                             end
-
                             table.clear(checkpoints)
-
                             for _, object in ipairs(
                                 checkpointFolder:GetChildren()
                             ) do
                                 object:Destroy()
                             end
-
                             local savedRouteSpeed =
                                 cfg.checkpointSpeed
-
                             if savedRouteSpeed == "inf" then
                                 checkpointRouteSpeed =
                                     math.huge
@@ -5635,13 +4480,11 @@ task.defer(function()
                                     tonumber(
                                         savedRouteSpeed
                                     ) or 16
-
                                 CheckpointSpeedInput.Text =
                                     tostring(
                                         checkpointRouteSpeed
                                     )
                             end
-
                             if type(cfg.checkpoints)
                                 == "table"
                             then
@@ -5650,17 +4493,14 @@ task.defer(function()
                                 ) do
                                     local position =
                                         dataToVec(pointData)
-
                                     if position then
                                         local index =
                                             #checkpoints + 1
-
                                         local marker =
                                             createCheckpointMarker(
                                                 index,
                                                 position
                                             )
-
                                         checkpoints[index] = {
                                             Position = position,
                                             Marker = marker
@@ -5668,12 +4508,9 @@ task.defer(function()
                                     end
                                 end
                             end
-
                             updateCheckpointUI()
                             updateMenuSettingsUI()
-
                             pcall(applyTheme)
-
                             setFeatureState(
                                 WallHackButton,
                                 isWallHackEnabled
@@ -5690,16 +4527,12 @@ task.defer(function()
                                 InfiniteJumpButton,
                                 isInfiniteJumpEnabled
                             )
-
                             activeConfigName =
                                 cfg.name
-
                             updateConfigStatus()
                             rebuildConfigList()
                         end)
-
                     configBusy = false
-
                     if success then
                         notify(
                             "Загружен конфиг: "
@@ -5711,31 +4544,26 @@ task.defer(function()
                             "[MEDA HUB] Config load error:",
                             loadError
                         )
-
                         notify(
                             "Ошибка загрузки конфига",
                             C().Red
                         )
                     end
                 end)
-
                 deleteButton.MouseButton1Click:Connect(function()
                     if configBusy then
                         return
                     end
-
                     for index = #configs, 1, -1 do
                         if configs[index] == cfg then
                             table.remove(configs, index)
                             break
                         end
                     end
-
                     if activeConfigName == cfg.name then
                         activeConfigName = nil
                         updateConfigStatus()
                     end
-
                     if writeConfigFile() then
                         rebuildConfigList()
                         notify(
@@ -5752,12 +4580,10 @@ task.defer(function()
                 end)
             end
         end
-
         createConfigButton.MouseButton1Click:Connect(function()
             if configBusy then
                 return
             end
-
             if not fileApiAvailable() then
                 notify(
                     "Сохранение недоступно: нужен writefile",
@@ -5765,12 +4591,10 @@ task.defer(function()
                 )
                 return
             end
-
             local name =
                 tostring(configNameInput.Text or "")
                     :gsub("^%s+", "")
                     :gsub("%s+$", "")
-
             if name == "" then
                 notify(
                     "Введите имя конфига",
@@ -5778,11 +4602,9 @@ task.defer(function()
                 )
                 return
             end
-
             if #name > 32 then
                 name = name:sub(1, 32)
             end
-
             if findConfig(name) then
                 notify(
                     "Конфиг с таким именем уже существует",
@@ -5790,26 +4612,19 @@ task.defer(function()
                 )
                 return
             end
-
             configBusy = true
-
             local cfg = snapshot()
             cfg.name = name
             cfg.createdAt = os.time()
             cfg.updatedAt = os.time()
-
             configs[#configs + 1] = cfg
-
             local saved = writeConfigFile()
-
             configBusy = false
-
             if saved then
                 activeConfigName = name
                 configNameInput.Text = ""
                 updateConfigStatus()
                 rebuildConfigList()
-
                 notify(
                     "Конфиг создан и сохранён: "
                         .. name,
@@ -5820,43 +4635,32 @@ task.defer(function()
                     configs,
                     #configs
                 )
-
                 notify(
                     "Не удалось записать файл конфига",
                     C().Red
                 )
             end
         end)
-
         configNameInput.FocusLost:Connect(function(enterPressed)
             if enterPressed then
                 createConfigButton:Activate()
             end
         end)
-
-        -- Обновляем список при изменении темы, чтобы карточки
-        -- сразу получили новые цвета.
         ThemeButton.MouseButton1Click:Connect(function()
             task.defer(function()
                 updateMenuSettingsUI()
                 rebuildConfigList()
             end)
         end)
-
-        -- Не сохраняем изменения автоматически:
-        -- CREATE создаёт именно снимок текущего состояния.
-        -- Поэтому существующий конфиг не меняется случайно.
         readConfigFile()
         updateConfigStatus()
         rebuildConfigList()
-
         print(
             "[MEDA HUB] Config system loaded: "
                 .. tostring(#configs)
                 .. " configs"
         )
     end, debug.traceback)
-
     if not ok then
         warn(
             "[MEDA HUB] Config system disabled:",
@@ -5864,23 +4668,15 @@ task.defer(function()
         )
     end
 end)
-
---========================================================--
--- AIM MENU (SETTINGS UI + FOV DISPLAY + OPTIONAL LINE-OF-SIGHT CHECK)
--- Aim selection and camera behavior are kept in this existing script.
---========================================================--
 do
     local aimPanelOk, aimPanelError = xpcall(function()
         local AimPanel, AimHeaderFrame, AimCloseButton, AimList =
             createPanel("AimPanel", "◎  AIM")
-
-        -- Always open centered, independently of the main menu.
         AimPanel.AnchorPoint = Vector2.new(0, 0)
         AimPanel.Position = UDim2.new(
             0.5, -math.floor(PANEL_WIDTH / 2),
             0.5, -math.floor(PANEL_HEIGHT / 2)
         )
-
         local sharedState = _G.MedaHubPersistentState
         sharedState.aim = type(sharedState.aim) == "table" and sharedState.aim or {}
         local aimSettings = sharedState.aim
@@ -5891,11 +4687,8 @@ do
         if aimSettings.AimSpeed == nil then aimSettings.AimSpeed = 10 end
         if aimSettings.WallCheck == nil then aimSettings.WallCheck = false end
         if type(aimSettings.IgnoredPlayers) ~= "table" then aimSettings.IgnoredPlayers = {} end
-
-        -- Persist ignored user IDs similarly to Server Hop favorites.
         local HttpService = game:GetService("HttpService")
         local AIM_IGNORE_FILE = "MedaHub_IgnoredPlayers.json"
-
         local function loadIgnoredPlayers()
             if type(isfile) ~= "function" or type(readfile) ~= "function" then return end
             local ok, exists = pcall(isfile, AIM_IGNORE_FILE)
@@ -5914,7 +4707,6 @@ do
                 end
             end
         end
-
         local function saveIgnoredPlayers()
             if type(writefile) ~= "function" then return end
             local serializable = {}
@@ -5925,11 +4717,7 @@ do
                 writefile(AIM_IGNORE_FILE, HttpService:JSONEncode(serializable))
             end)
         end
-
         loadIgnoredPlayers()
-
-        -- FOV ring is a normal ScreenGui object, so it does not depend on
-        -- executor-only Drawing APIs.
         local FOVCircle = Instance.new("Frame")
         FOVCircle.Name = "AimFOVCircle"
         FOVCircle.Parent = ScreenGui
@@ -5948,7 +4736,6 @@ do
         FOVStroke.Thickness = 1.5
         FOVStroke.Transparency = 0
         FOVStroke.Parent = FOVCircle
-
         local function makeRow(name, height)
             local row = Instance.new("Frame")
             row.Name = name
@@ -5961,7 +4748,6 @@ do
             addStroke(row, C().Stroke, 1, 0.25)
             return row
         end
-
         local function makeText(parent, text, size, pos, textSize, bold)
             local label = createLabel(
                 parent, text, size, pos,
@@ -5972,7 +4758,6 @@ do
             label.ZIndex = 72
             return label
         end
-
         local function makeToggle(title, initial, callback)
             local row = makeRow(title:gsub("%W", "") .. "Row", 42)
             makeText(row, title, UDim2.new(1, -80, 1, 0), UDim2.fromOffset(12, 0), 12, true)
@@ -6001,7 +4786,6 @@ do
             refresh()
             return setState, button
         end
-
         local function makeSlider(title, minValue, maxValue, initial, callback)
             local row = makeRow(title:gsub("%W", "") .. "Row", 58)
             local valueLabel = makeText(row, title .. ": " .. tostring(initial),
@@ -6072,7 +4856,6 @@ do
                 callback(value)
             end
         end
-
         local enableToggle = makeToggle("Enable", false, function(value)
             aimSettings.Enabled = value
         end)
@@ -6083,12 +4866,10 @@ do
         makeToggle("Wall Check", false, function(value)
             aimSettings.WallCheck = value
         end)
-
         makeSlider("FOV Size", 40, 400, aimSettings.FOVSize, function(value)
             aimSettings.FOVSize = value
             FOVCircle.Size = UDim2.fromOffset(value * 2, value * 2)
         end)
-
         local partRow = makeRow("TargetPartRow", 44)
         makeText(partRow, "Target Part", UDim2.new(0.45, 0, 1, 0), UDim2.fromOffset(12, 0), 11, true)
         local parts = {"Head", "Neck", "Chest", "Body"}
@@ -6110,12 +4891,9 @@ do
             aimSettings.TargetPart = parts[partIndex]
             partButton.Text = parts[partIndex] .. "  ▾"
         end)
-
         makeSlider("Aim Speed", 1, 100, aimSettings.AimSpeed, function(value)
             aimSettings.AimSpeed = value
         end)
-
-        -- Friend List opens as its own panel, matching the existing player-list UI.
         local friendListButtonRow = makeRow("FriendListButtonRow", 46)
         makeText(friendListButtonRow, "Friend List",
             UDim2.new(1, -120, 1, 0), UDim2.fromOffset(12, 0), 12, true)
@@ -6131,7 +4909,6 @@ do
         friendListOpenButton.TextSize = 10
         friendListOpenButton.ZIndex = 73
         addCorner(friendListOpenButton, 7)
-
         local FriendListPanel, FriendListHeader, FriendListClose, FriendListBody =
             createPanel("AimFriendListPanel", "♙  FRIEND LIST")
         FriendListPanel.Position = UDim2.new(
@@ -6139,14 +4916,12 @@ do
             0.5, -math.floor(PANEL_HEIGHT / 2)
         )
         local friendRows = {}
-
         local function clearFriendRows()
             for _, row in ipairs(friendRows) do
                 if row and row.Parent then row:Destroy() end
             end
             table.clear(friendRows)
         end
-
         local function rebuildFriendRows()
             clearFriendRows()
             local layout = FriendListBody:FindFirstChildOfClass("UIListLayout")
@@ -6166,7 +4941,6 @@ do
                     addCorner(row, 9)
                     addStroke(row, C().Stroke, 1, 0.25)
                     table.insert(friendRows, row)
-
                     local avatar = Instance.new("ImageLabel")
                     avatar.Parent = row
                     avatar.Size = UDim2.fromOffset(36, 36)
@@ -6177,7 +4951,6 @@ do
                     avatar.ScaleType = Enum.ScaleType.Crop
                     avatar.ZIndex = 72
                     addCorner(avatar, 8)
-
                     task.spawn(function()
                         local ok, image = pcall(function()
                             local content = Players:GetUserThumbnailAsync(
@@ -6189,7 +4962,6 @@ do
                         end)
                         if ok and avatar.Parent then avatar.Image = image end
                     end)
-
                     local nameLabel = createLabel(
                         row,
                         player.DisplayName .. "  (@" .. player.Name .. ")",
@@ -6201,7 +4973,6 @@ do
                     nameLabel.TextColor3 = C().Text
                     nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
                     nameLabel.ZIndex = 72
-
                     local ignoreButton = Instance.new("TextButton")
                     ignoreButton.Parent = row
                     ignoreButton.Size = UDim2.fromOffset(68, 26)
@@ -6238,7 +5009,6 @@ do
                 table.insert(friendRows, empty)
             end
         end
-
         friendListOpenButton.MouseButton1Click:Connect(function()
             rebuildFriendRows()
             FriendListPanel.Position = UDim2.new(
@@ -6260,9 +5030,6 @@ do
             task.defer(rebuildFriendRows)
         end)
         FriendListPanel.Visible = false
-
-        -- Keep the circle centered even if the viewport changes.
-        -- Target selection uses the current camera viewport and optional raycast visibility check.
         local currentAimCandidate = nil
         local function getAimPart(character, partName)
             if not character then return nil end
@@ -6278,25 +5045,19 @@ do
             end
             return nil
         end
-
         local function hasLineOfSight(camera, character, targetPart)
             if not aimSettings.WallCheck then return true end
             local localCharacter = LocalPlayer.Character
             local origin = camera.CFrame.Position
             local direction = targetPart.Position - origin
             if direction.Magnitude <= 0.001 then return true end
-
             local rayParams = RaycastParams.new()
             rayParams.FilterType = Enum.RaycastFilterType.Exclude
             rayParams.FilterDescendantsInstances = localCharacter and {localCharacter} or {}
             rayParams.IgnoreWater = true
-
             local result = workspace:Raycast(origin, direction, rayParams)
-            -- No hit means the ray is unobstructed; a hit on the target's
-            -- character (including accessories) also counts as visible.
             return result == nil or result.Instance:IsDescendantOf(character)
         end
-
         local function findAimCandidate()
             local camera = workspace.CurrentCamera
             if not camera then return nil end
@@ -6325,7 +5086,6 @@ do
             end
             return bestPlayer, bestPart
         end
-
         local currentAimPart = nil
         RunService.RenderStepped:Connect(function(deltaTime)
             if FOVCircle and FOVCircle.Parent then
@@ -6333,19 +5093,14 @@ do
                 FOVCircle.Size = UDim2.fromOffset(aimSettings.FOVSize * 2, aimSettings.FOVSize * 2)
                 FOVCircle.Visible = aimSettings.ShowFOV
             end
-
             if not aimSettings.Enabled then
                 currentAimCandidate = nil
                 currentAimPart = nil
                 return
             end
-
             local targetPlayer, targetPart = findAimCandidate()
             currentAimCandidate = targetPlayer
             currentAimPart = targetPart
-
-            -- Smooth camera aim-assist, driven by the actual settings.
-            -- AimSpeed is frame-rate adjusted so it behaves consistently.
             local camera = workspace.CurrentCamera
             if camera and targetPlayer and targetPart and targetPart.Parent then
                 local cameraPosition = camera.CFrame.Position
@@ -6358,7 +5113,6 @@ do
                 end
             end
         end)
-
         local AimButton = Instance.new("TextButton")
         AimButton.Name = "AimButton"
         AimButton.Parent = Content
@@ -6369,9 +5123,8 @@ do
         AimButton.Text = ""
         AimButton.AutoButtonColor = false
         AimButton.ZIndex = 12
-        addCorner(AimButton, 11)
+        addCorner(AimButton, 16)
         addStroke(AimButton, C().Stroke, 1, 0.2)
-
         local AimIconBox = Instance.new("Frame")
         AimIconBox.Parent = AimButton
         AimIconBox.Size = UDim2.fromOffset(36, 36)
@@ -6380,13 +5133,11 @@ do
         AimIconBox.BorderSizePixel = 0
         AimIconBox.ZIndex = 13
         addCorner(AimIconBox, 9)
-
         local AimIcon = createLabel(AimIconBox, "◎", UDim2.fromScale(1, 1),
             UDim2.fromScale(0, 0), Enum.Font.GothamBold, 16)
         AimIcon.TextXAlignment = Enum.TextXAlignment.Center
         AimIcon.TextColor3 = C().Accent
         AimIcon.ZIndex = 14
-
         local AimTitle = createLabel(AimButton, "AIM",
             UDim2.fromOffset(125, 21), UDim2.fromOffset(56, 8), Enum.Font.GothamBold, 12)
         AimTitle.ZIndex = 14
@@ -6394,7 +5145,6 @@ do
             UDim2.fromOffset(130, 18), UDim2.fromOffset(56, 31), Enum.Font.Gotham, 10)
         AimStatus.TextColor3 = C().SubText
         AimStatus.ZIndex = 14
-
         Content.CanvasSize = UDim2.fromOffset(0, 370)
         setupButtonFeedback(AimButton)
         AimButton.MouseButton1Click:Connect(function()
@@ -6410,7 +5160,6 @@ do
         AimHeaderFrame.InputBegan:Connect(function(input)
             beginDrag(AimPanel, input)
         end)
-
         ThemeButton.MouseButton1Click:Connect(function()
             task.defer(function()
                 if not AimPanel or not AimPanel.Parent then return end
@@ -6440,19 +5189,13 @@ do
                 end
             end)
         end)
-
         AimPanel.Visible = false
         print("[MEDA HUB] AIM settings loaded (Wall Check supported)")
     end, debug.traceback)
-
     if not aimPanelOk then
         warn("[MEDA HUB] AIM menu failed to initialize:", aimPanelError)
     end
 end
---========================================================--
--- MEDA HUB: OPTIONAL FPS / PING OVERLAY (SAFE INIT)
---========================================================--
--- This module is intentionally isolated so a stats/UI error won't stop the hub.
 do
     local statsInitOk, statsInitErr = pcall(function()
         local sharedState = _G.MedaHubPersistentState
@@ -6460,7 +5203,6 @@ do
         local savedStatsPosition = type(sharedState.statsPosition) == "table" and sharedState.statsPosition or {x = 24, y = 120}
         local statsFrames, statsElapsed = 0, 0
         local statsLastFpsUpdate, statsLastPingUpdate = 0, 0
-
         local overlay = Instance.new("Frame")
         overlay.Name = "MedaStatsOverlay"
         overlay.Parent = ScreenGui
@@ -6472,9 +5214,8 @@ do
         overlay.Visible = statsEnabled
         overlay.Active = false
         overlay.ZIndex = 200
-        addCorner(overlay, 9)
-        local overlayStroke = addStroke(overlay, C().Stroke, 1, 0.25)
-
+        makeGlass(overlay, 16)
+        local overlayStroke = overlay:FindFirstChildOfClass("UIStroke")
         local header = Instance.new("Frame")
         header.Name = "DragHeader"
         header.Parent = overlay
@@ -6486,7 +5227,6 @@ do
         header.Active = true
         header.ZIndex = 203
         addCorner(header, 9)
-
         local headerCover = Instance.new("Frame")
         headerCover.Parent = header
         headerCover.Position = UDim2.new(0, 0, 1, -9)
@@ -6496,7 +5236,6 @@ do
         headerCover.BorderSizePixel = 0
         headerCover.Active = false
         headerCover.ZIndex = 203
-
         local accentLine = Instance.new("Frame")
         accentLine.Name = "AccentLine"
         accentLine.Parent = header
@@ -6507,7 +5246,6 @@ do
         accentLine.BorderSizePixel = 0
         accentLine.Active = false
         accentLine.ZIndex = 204
-
         local brand = Instance.new("TextLabel")
         brand.Parent = header
         brand.BackgroundTransparency = 1
@@ -6520,7 +5258,6 @@ do
         brand.TextXAlignment = Enum.TextXAlignment.Left
         brand.Active = false
         brand.ZIndex = 205
-
         local fpsLabel = Instance.new("TextLabel")
         fpsLabel.Parent = overlay
         fpsLabel.BackgroundTransparency = 1
@@ -6533,7 +5270,6 @@ do
         fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
         fpsLabel.Active = false
         fpsLabel.ZIndex = 202
-
         local pingLabel = Instance.new("TextLabel")
         pingLabel.Parent = overlay
         pingLabel.BackgroundTransparency = 1
@@ -6546,7 +5282,6 @@ do
         pingLabel.TextXAlignment = Enum.TextXAlignment.Left
         pingLabel.Active = false
         pingLabel.ZIndex = 202
-
         local toggle = Instance.new("TextButton")
         toggle.Name = "StatsOverlayToggle"
         toggle.Parent = MenuSettingsList
@@ -6559,9 +5294,8 @@ do
         toggle.TextSize = 12
         toggle.AutoButtonColor = false
         toggle.ZIndex = 70
-        addCorner(toggle, 9)
+        addCorner(toggle, 14)
         local toggleStroke = addStroke(toggle, C().Stroke, 1, 0.15)
-
         toggle.MouseButton1Click:Connect(function()
             statsEnabled = not statsEnabled
             sharedState.statsEnabled = statsEnabled
@@ -6569,8 +5303,6 @@ do
             toggle.Text = "Показывать статистику: " .. (statsEnabled and "ВКЛ" or "ВЫКЛ")
             toggle.TextColor3 = statsEnabled and C().Green or C().Text
         end)
-
-        -- Drag only from the header. The rest of the overlay does not capture input.
         local dragging = false
         local dragStart, startPosition
         header.InputBegan:Connect(function(input)
@@ -6602,7 +5334,6 @@ do
                 dragStart, startPosition = nil, nil
             end
         end)
-
         RunService.RenderStepped:Connect(function(dt)
             if not statsEnabled then return end
             statsFrames = statsFrames + 1
@@ -6612,7 +5343,6 @@ do
                 statsFrames, statsElapsed = 0, 0
             end
         end)
-
         task.spawn(function()
             while ScreenGui and ScreenGui.Parent do
                 if statsEnabled then
@@ -6634,8 +5364,6 @@ do
                 task.wait(1)
             end
         end)
-
-        -- Keep the overlay in sync with the hub's current theme.
         local function refreshStatsTheme()
             local theme = C()
             overlay.BackgroundColor3 = theme.Background
@@ -6649,15 +5377,12 @@ do
             toggleStroke.Color = theme.Stroke
             toggle.TextColor3 = statsEnabled and theme.Green or theme.Text
         end
-        -- Theme changes are initiated by the existing theme button.
         ThemeButton.MouseButton1Click:Connect(function()
             task.defer(refreshStatsTheme)
         end)
         print("[MEDA HUB] Stats overlay initialized")
     end)
-
     if not statsInitOk then
         warn("[MEDA HUB] Stats overlay failed to initialize: " .. tostring(statsInitErr))
     end
 end
-
